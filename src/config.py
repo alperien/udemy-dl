@@ -1,0 +1,82 @@
+import json
+import os
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Tuple
+
+from .utils import get_logger, set_secure_permissions
+
+logger = get_logger(__name__)
+CONFIG_FILE = "config.json"
+QUALITY_OPTIONS = ["2160", "1440", "1080", "720", "480", "360"]
+
+@dataclass
+class Config:
+    domain: str = "https://www.udemy.com"
+    token: str = ""
+    client_id: str = ""
+    dl_path: str = "downloads"
+    quality: str = "1080"
+    max_workers: int = 1
+    download_subtitles: bool = True
+    download_materials: bool = True
+
+    def validate(self) -> Tuple[bool, str]:
+        if not self.token or len(self.token) < 10:
+            return False, "Invalid or missing access token"
+        if not self.client_id or len(self.client_id) < 5:
+            return False, "Invalid or missing client_id"
+        if not self.domain.startswith("http"):
+            return False, "Invalid domain URL"
+        if self.quality not in QUALITY_OPTIONS:
+            return False, f"Invalid quality option. Choose from: {QUALITY_OPTIONS}"
+        if self.max_workers < 1 or self.max_workers > 5:
+            return False, "max_workers must be between 1 and 5"
+        return True, ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+def load_config() -> Config:
+    config = Config(
+        domain=os.getenv("UDEMY_DOMAIN", "https://www.udemy.com"),
+        token=os.getenv("UDEMY_TOKEN", ""),
+        client_id=os.getenv("UDEMY_CLIENT_ID", ""),
+        dl_path=os.getenv("UDEMY_DL_PATH", "downloads"),
+        quality=os.getenv("UDEMY_QUALITY", "1080"),
+        max_workers=int(os.getenv("UDEMY_MAX_WORKERS", "1")),
+        download_subtitles=os.getenv("UDEMY_DOWNLOAD_SUBTITLES", "true").lower() == "true",
+        download_materials=os.getenv("UDEMY_DOWNLOAD_MATERIALS", "true").lower() == "true"
+    )
+    config_path = Path(CONFIG_FILE)
+    if config_path.exists():
+        try:
+            saved = json.loads(config_path.read_text(encoding='utf-8'))
+            if not os.getenv("UDEMY_DOMAIN"):
+                config.domain = saved.get("domain", config.domain).strip()
+            if not os.getenv("UDEMY_TOKEN"):
+                config.token = saved.get("token", config.token).strip()
+            if not os.getenv("UDEMY_CLIENT_ID"):
+                config.client_id = saved.get("client_id", config.client_id).strip()
+            if not os.getenv("UDEMY_DL_PATH"):
+                config.dl_path = saved.get("dl_path", config.dl_path).strip()
+            if not os.getenv("UDEMY_QUALITY"):
+                config.quality = saved.get("quality", config.quality).strip()
+            if not os.getenv("UDEMY_MAX_WORKERS"):
+                config.max_workers = saved.get("max_workers", config.max_workers)
+            if not os.getenv("UDEMY_DOWNLOAD_SUBTITLES"):
+                config.download_subtitles = saved.get("download_subtitles", config.download_subtitles)
+            if not os.getenv("UDEMY_DOWNLOAD_MATERIALS"):
+                config.download_materials = saved.get("download_materials", config.download_materials)
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Failed to load config file: {e}")
+    return config
+
+def save_config(config: Config) -> None:
+    config_path = Path(CONFIG_FILE)
+    try:
+        config_path.write_text(json.dumps(config.to_dict(), indent=4), encoding='utf-8')
+        set_secure_permissions(config_path)
+        logger.info("Configuration saved successfully")
+    except IOError as e:
+        logger.error(f"Failed to save config: {e}")
