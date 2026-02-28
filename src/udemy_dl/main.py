@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import curses
-import signal
 import sys
+
 from .app import Application
 from .utils import setup_logging
 
@@ -28,7 +28,6 @@ def _main(stdscr):
 
 def run():
     """Entry point for console_scripts"""
-    signal.signal(signal.SIGINT, lambda sig, frame: None)
     curses.wrapper(_main)
 
 

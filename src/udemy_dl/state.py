@@ -3,12 +3,13 @@ import os
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
+from .config import _CONFIG_DIR
 from .utils import get_logger
 
 logger = get_logger(__name__)
-STATE_FILE = "download_state.json"
+STATE_FILE = str(_CONFIG_DIR / "download_state.json")
 
 
 @dataclass
@@ -24,7 +25,10 @@ class DownloadState:
 
     @classmethod
     def from_dict(cls, data: Dict) -> "DownloadState":
-        return cls(**data)
+        # Only pass keys that match dataclass fields to avoid TypeError on extras
+        valid_keys = set(cls.__dataclass_fields__)
+        filtered = {k: v for k, v in data.items() if k in valid_keys}
+        return cls(**filtered)
 
 
 class AppState:
@@ -38,7 +42,7 @@ class AppState:
             try:
                 data = json.loads(state_path.read_text(encoding="utf-8"))
                 return DownloadState.from_dict(data)
-            except (json.JSONDecodeError, IOError, KeyError) as e:
+            except (json.JSONDecodeError, IOError, KeyError, TypeError) as e:
                 logger.error(f"Failed to load download state: {e}")
                 return None
         return None

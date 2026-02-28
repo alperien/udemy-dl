@@ -7,7 +7,16 @@ from typing import Tuple
 from .utils import get_logger, set_secure_permissions
 
 logger = get_logger(__name__)
-CONFIG_FILE = "config.json"
+
+# Store configuration in a well-known directory so it is found regardless of
+# the working directory the user launches from.
+_CONFIG_DIR = Path(os.getenv("UDEMY_DL_CONFIG_DIR", Path.home() / ".config" / "udemy-dl"))
+try:
+    _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as e:
+    logger.warning(f"Failed to create config directory {_CONFIG_DIR}: {e}")
+CONFIG_FILE = str(_CONFIG_DIR / "config.json")
+
 QUALITY_OPTIONS = ["2160", "1440", "1080", "720", "480", "360"]
 
 
@@ -40,13 +49,19 @@ class Config:
 
 
 def load_config() -> Config:
+    try:
+        max_workers = int(os.getenv("UDEMY_MAX_WORKERS", "1"))
+    except ValueError:
+        logger.warning("Invalid UDEMY_MAX_WORKERS env var, defaulting to 1")
+        max_workers = 1
+
     config = Config(
         domain=os.getenv("UDEMY_DOMAIN", "https://www.udemy.com"),
         token=os.getenv("UDEMY_TOKEN", ""),
         client_id=os.getenv("UDEMY_CLIENT_ID", ""),
         dl_path=os.getenv("UDEMY_DL_PATH", "downloads"),
         quality=os.getenv("UDEMY_QUALITY", "1080"),
-        max_workers=int(os.getenv("UDEMY_MAX_WORKERS", "1")),
+        max_workers=max_workers,
         download_subtitles=os.getenv("UDEMY_DOWNLOAD_SUBTITLES", "true").lower()
         == "true",
         download_materials=os.getenv("UDEMY_DOWNLOAD_MATERIALS", "true").lower()

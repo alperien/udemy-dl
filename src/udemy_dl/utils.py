@@ -1,41 +1,44 @@
+import functools
 import logging
 import os
 import re
+import shutil
 from pathlib import Path
 
 LOG_FILE = "downloader.log"
 
 
+@functools.lru_cache(maxsize=1)
+def _ffprobe_available() -> bool:
+    return shutil.which("ffprobe") is not None
+
+
 def get_logger(name: str) -> logging.Logger:
-    logger = logging.getLogger(name)
-    if not logger.handlers:
-        logger.setLevel(logging.INFO)
-        logger.propagate = False
-        file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
-        file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-            )
-        )
-        logger.addHandler(file_handler)
+    """Get a module-level logger under the 'udemy_dl' hierarchy."""
+    # Normalize names so all module loggers share a common root
+    canonical = name.replace("src.udemy_dl.", "udemy_dl.").replace("src.", "")
+    logger = logging.getLogger(canonical)
     return logger
 
 
 def setup_logging() -> logging.Logger:
-    logger = logging.getLogger("udemy_downloader")
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-    logger.handlers.clear()
+    """Configure the root 'udemy_dl' logger (call once at startup)."""
+    root = logging.getLogger("udemy_dl")
+    if root.handlers:
+        # Already configured — avoid duplicate handlers
+        return root
+    root.setLevel(logging.DEBUG)
+    root.propagate = False
     file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(
         logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            "%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
     )
-    logger.addHandler(file_handler)
-    return logger
+    root.addHandler(file_handler)
+    return root
 
 
 def sanitize_filename(name: str) -> str:
@@ -59,6 +62,15 @@ def set_secure_permissions(file_path: Path) -> None:
 
 
 def validate_video(path: Path) -> bool:
+    """Validate a video file using ffprobe.
+
+    Returns True if the file is a valid video with duration > 0.
+    If ffprobe is not available, conservatively returns True
+    (assumes the file is valid rather than triggering re-downloads).
+    """
+    if not _ffprobe_available():
+        return True
+
     import subprocess
 
     try:

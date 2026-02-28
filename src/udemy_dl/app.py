@@ -9,10 +9,9 @@ from .api import UdemyAPI
 from .config import load_config
 from .dl import VideoDownloader
 from .state import AppState, DownloadState
-from .tui import TUI
+from .tui import TUI, COLOR_SUCCESS, COLOR_DIM
 from .utils import (
     get_logger,
-    setup_logging,
     sanitize_filename,
     time_string_to_seconds,
     validate_video,
@@ -44,16 +43,17 @@ class Application:
 
     def _setup_signal_handlers(self):
         def handler(sig, frame):
+            # Only set flags here — performing file I/O inside a signal
+            # handler is unsafe and can deadlock or corrupt the state file
+            # if the signal fires during another write.  The main download
+            # loop checks self.download_interrupted and calls save_state().
             self.download_interrupted = True
             self.state.interrupted = True
-            logger.warning("Download interrupted by user")
-            self.state.save_state()
 
         signal.signal(signal.SIGINT, handler)
         signal.signal(signal.SIGTERM, handler)
 
     def run(self):
-        setup_logging()
         curses.curs_set(0)
 
         if not shutil.which("ffmpeg"):
@@ -120,14 +120,14 @@ class Application:
                 height // 2,
                 max(0, (width - 40) // 2),
                 "All downloads completed successfully!",
-                3,
+                COLOR_SUCCESS,
                 curses.A_BOLD,
             )
             self.tui.safe_addstr(
                 height // 2 + 1,
                 max(0, (width - 40) // 2),
                 "[ Press any key to return to menu ]",
-                6,
+                COLOR_DIM,
             )
             self.stdscr.refresh()
             self.stdscr.getch()
@@ -257,7 +257,10 @@ class Application:
                             )
                     if match := STATS_REGEX.search(line):
                         time_val = match.group("time").split(".")[0]
-                        ui_state["vid_current_secs"] = time_string_to_seconds(time_val)
+                        ui_state["vid_current_secs"] = min(
+                            time_string_to_seconds(time_val),
+                            ui_state["vid_duration_secs"],
+                        )
                     self.tui.render_dashboard(ui_state, index, total, self.log_buffer)
             except Exception as e:
                 logger.error(f"Error reading ffmpeg output: {e}")

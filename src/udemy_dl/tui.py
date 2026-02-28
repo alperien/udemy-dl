@@ -58,7 +58,8 @@ class TUI:
         bar_width = width - len(prefix) - len(suffix) - 4
         if bar_width < 5:
             return
-        filled = int((percent / 100) * bar_width)
+        clamped = max(0.0, min(percent, 100.0))
+        filled = int((clamped / 100) * bar_width)
         bar = "=" * filled
         if filled < bar_width:
             bar += ">" + " " * (bar_width - filled - 1)

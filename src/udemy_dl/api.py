@@ -62,22 +62,4 @@ class UdemyAPI:
                 break
         return items
 
-    def get_subtitles_data(self, course_id: int, lecture_id: int) -> List[Dict]:
-        try:
-            url = f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/subtitles"
-            response = self.session.get(url, timeout=30)
-            response.raise_for_status()
-            return response.json().get("captions", [])
-        except Exception as e:
-            logger.warning(f"Failed to fetch subtitles: {e}")
-            return []
 
-    def get_materials_data(self, course_id: int, lecture_id: int) -> List[Dict]:
-        try:
-            url = f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/supplementary-assets"
-            response = self.session.get(url, timeout=30)
-            response.raise_for_status()
-            return response.json().get("results", [])
-        except Exception as e:
-            logger.warning(f"Failed to fetch materials: {e}")
-            return []

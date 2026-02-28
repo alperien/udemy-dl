@@ -11,6 +11,7 @@ env/
 *.log
 downloads/
 config.json
+download_state.json
 *.orig
 *.rej
 *.patch
