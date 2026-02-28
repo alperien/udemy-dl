@@ -40,7 +40,10 @@ class UdemyAPI:
                 response.raise_for_status()
                 data = response.json()
                 for item in data.get("results", []):
-                    courses.append({"id": item["id"], "title": item["title"]})
+                    course_id = item.get("id")
+                    course_title = item.get("title")
+                    if course_id and course_title:
+                        courses.append({"id": course_id, "title": course_title})
                 url = data.get("next")
             except (Timeout, HTTPError, RequestException) as e:
                 logger.error(f"Error fetching courses: {e}")

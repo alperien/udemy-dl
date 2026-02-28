@@ -216,12 +216,15 @@ class VideoDownloader:
                     continue
                 try:
                     mat_response = self.session.get(file_url, timeout=30, stream=True)
-                    if mat_response.status_code in [401, 403]:
-                        # Some material URLs are public; retry without auth
-                        mat_response = self.session.get(file_url, timeout=30, stream=True)
-                        # If still fails with session auth, try unauthenticated
-                        if mat_response.status_code in [401, 403]:
+                    # Retry logic for auth failures - try different approaches
+                    retry_count = 0
+                    max_retries = 2
+                    while mat_response.status_code in [401, 403] and retry_count < max_retries:
+                        retry_count += 1
+                        if retry_count == 1:
+                            # First retry: try unauthenticated request
                             mat_response = requests.get(file_url, timeout=30, stream=True)
+                        # else: max retries reached, will raise on raise_for_status()
                     mat_response.raise_for_status()
                     mat_path = materials_dir / filename
                     with open(mat_path, "wb") as f:
