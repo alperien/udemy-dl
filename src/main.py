@@ -7,6 +7,7 @@ from .utils import setup_logging
 
 logger = None
 
+
 def _main(stdscr):
     """Internal main function called by curses.wrapper()"""
     global logger
@@ -24,10 +25,12 @@ def _main(stdscr):
         print("Check downloader.log for details")
         sys.exit(1)
 
+
 def run():
     """Entry point for console_scripts"""
     signal.signal(signal.SIGINT, lambda sig, frame: None)
     curses.wrapper(_main)
+
 
 if __name__ == "__main__":
     run()

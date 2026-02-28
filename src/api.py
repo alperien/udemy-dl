@@ -10,6 +10,7 @@ from .utils import get_logger
 logger = get_logger(__name__)
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
+
 class UdemyAPI:
     def __init__(self, config: Config):
         self.config = config
@@ -17,16 +18,17 @@ class UdemyAPI:
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
-        session.headers.update({
-            "Authorization": f"Bearer {self.config.token}",
-            "User-Agent": USER_AGENT,
-            "Origin": self.config.domain,
-            "Referer": f"{self.config.domain}/"
-        })
-        session.cookies.update({
-            "access_token": self.config.token,
-            "client_id": self.config.client_id
-        })
+        session.headers.update(
+            {
+                "Authorization": f"Bearer {self.config.token}",
+                "User-Agent": USER_AGENT,
+                "Origin": self.config.domain,
+                "Referer": f"{self.config.domain}/",
+            }
+        )
+        session.cookies.update(
+            {"access_token": self.config.token, "client_id": self.config.client_id}
+        )
         return session
 
     def fetch_owned_courses(self) -> List[Dict]:

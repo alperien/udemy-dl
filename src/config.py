@@ -10,6 +10,7 @@ logger = get_logger(__name__)
 CONFIG_FILE = "config.json"
 QUALITY_OPTIONS = ["2160", "1440", "1080", "720", "480", "360"]
 
+
 @dataclass
 class Config:
     domain: str = "https://www.udemy.com"
@@ -37,6 +38,7 @@ class Config:
     def to_dict(self) -> dict:
         return asdict(self)
 
+
 def load_config() -> Config:
     config = Config(
         domain=os.getenv("UDEMY_DOMAIN", "https://www.udemy.com"),
@@ -45,13 +47,15 @@ def load_config() -> Config:
         dl_path=os.getenv("UDEMY_DL_PATH", "downloads"),
         quality=os.getenv("UDEMY_QUALITY", "1080"),
         max_workers=int(os.getenv("UDEMY_MAX_WORKERS", "1")),
-        download_subtitles=os.getenv("UDEMY_DOWNLOAD_SUBTITLES", "true").lower() == "true",
-        download_materials=os.getenv("UDEMY_DOWNLOAD_MATERIALS", "true").lower() == "true"
+        download_subtitles=os.getenv("UDEMY_DOWNLOAD_SUBTITLES", "true").lower()
+        == "true",
+        download_materials=os.getenv("UDEMY_DOWNLOAD_MATERIALS", "true").lower()
+        == "true",
     )
     config_path = Path(CONFIG_FILE)
     if config_path.exists():
         try:
-            saved = json.loads(config_path.read_text(encoding='utf-8'))
+            saved = json.loads(config_path.read_text(encoding="utf-8"))
             if not os.getenv("UDEMY_DOMAIN"):
                 config.domain = saved.get("domain", config.domain).strip()
             if not os.getenv("UDEMY_TOKEN"):
@@ -65,17 +69,22 @@ def load_config() -> Config:
             if not os.getenv("UDEMY_MAX_WORKERS"):
                 config.max_workers = saved.get("max_workers", config.max_workers)
             if not os.getenv("UDEMY_DOWNLOAD_SUBTITLES"):
-                config.download_subtitles = saved.get("download_subtitles", config.download_subtitles)
+                config.download_subtitles = saved.get(
+                    "download_subtitles", config.download_subtitles
+                )
             if not os.getenv("UDEMY_DOWNLOAD_MATERIALS"):
-                config.download_materials = saved.get("download_materials", config.download_materials)
+                config.download_materials = saved.get(
+                    "download_materials", config.download_materials
+                )
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Failed to load config file: {e}")
     return config
 
+
 def save_config(config: Config) -> None:
     config_path = Path(CONFIG_FILE)
     try:
-        config_path.write_text(json.dumps(config.to_dict(), indent=4), encoding='utf-8')
+        config_path.write_text(json.dumps(config.to_dict(), indent=4), encoding="utf-8")
         set_secure_permissions(config_path)
         logger.info("Configuration saved successfully")
     except IOError as e:

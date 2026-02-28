@@ -10,6 +10,7 @@ from .utils import get_logger
 logger = get_logger(__name__)
 STATE_FILE = "download_state.json"
 
+
 @dataclass
 class DownloadState:
     course_id: Optional[int] = None
@@ -22,8 +23,9 @@ class DownloadState:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'DownloadState':
+    def from_dict(cls, data: Dict) -> "DownloadState":
         return cls(**data)
+
 
 class AppState:
     def __init__(self):
@@ -34,7 +36,7 @@ class AppState:
         state_path = Path(STATE_FILE)
         if state_path.exists():
             try:
-                data = json.loads(state_path.read_text(encoding='utf-8'))
+                data = json.loads(state_path.read_text(encoding="utf-8"))
                 return DownloadState.from_dict(data)
             except (json.JSONDecodeError, IOError, KeyError) as e:
                 logger.error(f"Failed to load download state: {e}")
@@ -47,7 +49,10 @@ class AppState:
         state_path = Path(STATE_FILE)
         self.current_course_state.last_updated = datetime.now().isoformat()
         try:
-            state_path.write_text(json.dumps(self.current_course_state.to_dict(), indent=4), encoding='utf-8')
+            state_path.write_text(
+                json.dumps(self.current_course_state.to_dict(), indent=4),
+                encoding="utf-8",
+            )
             os.chmod(state_path, 0o600)
             logger.debug("Download state saved")
         except IOError as e:

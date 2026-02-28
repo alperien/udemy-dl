@@ -9,6 +9,7 @@ from .utils import get_logger, sanitize_filename
 
 logger = get_logger(__name__)
 
+
 class VideoDownloader:
     def __init__(self, config: Config, session: requests.Session):
         self.config = config
@@ -42,11 +43,11 @@ class VideoDownloader:
             if ready:
                 line = proc.stderr.readline()
                 if line:
-                    yield line.decode('utf-8', 'ignore').strip().lower()
+                    yield line.decode("utf-8", "ignore").strip().lower()
             if proc.poll() is not None:
                 remaining = proc.stderr.read()
                 if remaining:
-                    yield remaining.decode('utf-8', 'ignore').strip().lower()
+                    yield remaining.decode("utf-8", "ignore").strip().lower()
                 break
 
     def download_video(self, url: str, output_path: Path) -> subprocess.Popen:
@@ -56,12 +57,23 @@ class VideoDownloader:
             f"Referer: {self.config.domain}/\\r\n"
         )
         cmd = [
-            "ffmpeg", "-y", "-headers", headers,
-            "-i", url, "-c", "copy", "-bsf:a", "aac_adtstoasc", str(output_path)
+            "ffmpeg",
+            "-y",
+            "-headers",
+            headers,
+            "-i",
+            url,
+            "-c",
+            "copy",
+            "-bsf:a",
+            "aac_adtstoasc",
+            str(output_path),
         ]
         return subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL)
 
-    def download_subtitles(self, course_id: int, lecture_id: int, output_path: Path) -> List[Path]:
+    def download_subtitles(
+        self, course_id: int, lecture_id: int, output_path: Path
+    ) -> List[Path]:
         downloaded = []
         try:
             url = f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/subtitles"
@@ -80,7 +92,7 @@ class VideoDownloader:
                         content = sub_response.text
                         if content.startswith("WEBVTT"):
                             content = content.replace("WEBVTT", "").strip()
-                        srt_path.write_text(content, encoding='utf-8')
+                        srt_path.write_text(content, encoding="utf-8")
                         downloaded.append(srt_path)
                         logger.info(f"Downloaded subtitle: {srt_path.name}")
                     except Exception as e:
@@ -89,7 +101,9 @@ class VideoDownloader:
             logger.warning(f"Failed to fetch subtitles for lecture {lecture_id}: {e}")
         return downloaded
 
-    def download_materials(self, course_id: int, lecture_id: int, output_path: Path) -> List[Path]:
+    def download_materials(
+        self, course_id: int, lecture_id: int, output_path: Path
+    ) -> List[Path]:
         downloaded = []
         try:
             url = f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/supplementary-assets"
@@ -109,7 +123,7 @@ class VideoDownloader:
                         mat_response = requests.get(file_url, timeout=30, stream=True)
                     mat_response.raise_for_status()
                     mat_path = materials_dir / filename
-                    with open(mat_path, 'wb') as f:
+                    with open(mat_path, "wb") as f:
                         for chunk in mat_response.iter_content(chunk_size=8192):
                             if chunk:
                                 f.write(chunk)
