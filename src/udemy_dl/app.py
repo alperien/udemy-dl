@@ -257,14 +257,14 @@ class Application:
         except Exception as e:
             logger.error(f"Error reading ffmpeg output: {e}")
 
-        proc.wait()
+        returncode = self.downloader.wait_for_download(proc)
 
         if self.download_interrupted:
             return
 
         is_valid = validate_video(out_path)
-        if proc.returncode != 0:
-            self.add_log(f"[WARN] FFmpeg exited with code {proc.returncode}")
+        if returncode != 0:
+            self.add_log(f"[WARN] FFmpeg exited with code {returncode}")
             if not _ffprobe_available():
                 is_valid = False
 

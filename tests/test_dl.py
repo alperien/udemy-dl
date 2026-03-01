@@ -1,6 +1,3 @@
-"""Tests for udemy_dl.dl module."""
-
-
 from udemy_dl.config import Config
 from udemy_dl.dl import VideoDownloader, _webvtt_to_srt
 
@@ -41,7 +38,6 @@ class TestWebvttToSrt:
     def test_empty_webvtt(self):
         webvtt = "WEBVTT\n\n"
         result = _webvtt_to_srt(webvtt)
-        # Should return something without crashing
         assert isinstance(result, str)
 
     def test_dot_to_comma_conversion(self):
@@ -79,7 +75,6 @@ class TestGetQualityVideoUrl:
         dl = self._make_downloader("1080")
         asset = self._make_asset(["720", "480"])
         url = dl.get_quality_video_url(asset)
-        # Should fall back to best available (720)
         assert url != ""
 
     def test_empty_asset_returns_empty(self):
@@ -106,7 +101,6 @@ class TestGetQualityVideoUrl:
         assert "720" in url
 
     def test_invalid_quality_falls_back_to_1080_index(self):
-        # pref_index defaults to 2 (1080) when quality not in list
         cfg = Config(token="t" * 20, client_id="c" * 10, quality="999")
         import requests
 

@@ -73,15 +73,19 @@ def _parse_args() -> argparse.Namespace:
 
 def _get_version() -> str:
     try:
-        from . import __version__
+        from importlib.metadata import version
 
-        return __version__
-    except ImportError:
-        return "unknown"
+        return version("udemy-dl")
+    except Exception:
+        try:
+            from . import __version__
+
+            return __version__
+        except ImportError:
+            return "unknown"
 
 
 def _run_headless(args: argparse.Namespace) -> None:
-    """Non-interactive download mode — no curses required."""
     from pathlib import Path
 
     from .api import UdemyAPI
@@ -93,7 +97,6 @@ def _run_headless(args: argparse.Namespace) -> None:
     setup_logging()
     config = load_config()
 
-    # Apply CLI overrides
     if args.quality:
         config.quality = args.quality
     if args.no_subtitles:
@@ -122,12 +125,6 @@ def _run_headless(args: argparse.Namespace) -> None:
 
     if args.course_id:
         courses = [{"id": args.course_id, "title": f"Course {args.course_id}"}]
-        # Try to get the real title
-        all_courses = api.fetch_owned_courses()
-        for c in all_courses:
-            if c["id"] == args.course_id:
-                courses = [c]
-                break
     else:
         print("Fetching owned courses...")
         courses = api.fetch_owned_courses()
@@ -150,6 +147,18 @@ def _run_headless(args: argparse.Namespace) -> None:
             except RuntimeError as e:
                 print(f"[ERROR] {e}", file=sys.stderr)
                 continue
+
+            if curriculum and course["title"].startswith("Course "):
+                first_chapter = next(
+                    (
+                        item
+                        for item in curriculum
+                        if item.get("_class") == "chapter" and item.get("title")
+                    ),
+                    None,
+                )
+                if first_chapter:
+                    course["title"] = first_chapter["title"]
 
             base_dir = Path(config.dl_path) / sanitize_filename(course["title"])
             chapter_index = 0
@@ -206,9 +215,9 @@ def _run_headless(args: argparse.Namespace) -> None:
 
                     print(f"  [DL]    {clean_title[:50]}")
                     proc = downloader.download_video(url, out_path)
-                    proc.wait()
+                    returncode = downloader.wait_for_download(proc)
 
-                    if proc.returncode == 0 and out_path.exists() and validate_video(out_path):
+                    if returncode == 0 and out_path.exists() and validate_video(out_path):
                         print(f"  [DONE]  {clean_title[:50]}")
                         if lecture_id:
                             app_state.current_course_state.mark_completed(lecture_id)

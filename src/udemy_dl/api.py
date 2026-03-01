@@ -15,7 +15,8 @@ logger = get_logger(__name__)
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 MAX_RETRIES = 3
-RETRY_BACKOFF = 2  # seconds; doubles each retry
+RETRY_BACKOFF = 2
+PAGINATION_DELAY = 0.5
 
 
 class UdemyAPI:
@@ -39,7 +40,6 @@ class UdemyAPI:
         return session
 
     def _request_with_retry(self, url: str, timeout: int = 30) -> requests.Response:
-        """Perform a GET request with exponential backoff retry."""
         last_exc: Exception | None = None
         for attempt in range(1, MAX_RETRIES + 1):
             try:
@@ -74,6 +74,7 @@ class UdemyAPI:
                 url = data.get("next")
                 if url:
                     url = urllib.parse.urljoin(self.config.domain, url)
+                    time.sleep(PAGINATION_DELAY)
             except (Timeout, HTTPError, RequestException, json.JSONDecodeError) as e:
                 logger.error(f"Error fetching courses (page): {e}")
                 break
@@ -95,6 +96,7 @@ class UdemyAPI:
                 url = data.get("next")
                 if url:
                     url = urllib.parse.urljoin(self.config.domain, url)
+                    time.sleep(PAGINATION_DELAY)
             except (Timeout, HTTPError, RequestException, json.JSONDecodeError) as e:
                 logger.error(f"Error fetching curriculum: {e}")
                 raise RuntimeError(f"Failed to fetch complete curriculum: {e}") from e

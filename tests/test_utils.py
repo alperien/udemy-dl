@@ -1,6 +1,3 @@
-"""Tests for udemy_dl.utils module."""
-
-
 from udemy_dl.utils import sanitize_filename, time_string_to_seconds
 
 
@@ -45,7 +42,6 @@ class TestTimeStringToSeconds:
         assert time_string_to_seconds("00:00:45") == 45
 
     def test_with_fractional_seconds(self):
-        # fractional part should be stripped
         assert time_string_to_seconds("00:01:30.500") == 90
 
     def test_invalid_format_returns_zero(self):

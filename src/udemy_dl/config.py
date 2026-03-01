@@ -28,8 +28,8 @@ class Config:
             return False, "Invalid or missing access token"
         if not self.client_id or len(self.client_id) < 5:
             return False, "Invalid or missing client_id"
-        if not self.domain.startswith("http"):
-            return False, "Invalid domain URL"
+        if not self.domain.startswith("https://"):
+            return False, "Invalid domain URL (must start with https://)"
         if self.quality not in QUALITY_OPTIONS:
             return False, f"Invalid quality option. Choose from: {QUALITY_OPTIONS}"
         return True, ""

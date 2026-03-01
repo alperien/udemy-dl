@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import sys
@@ -10,6 +11,8 @@ from .config import Config
 from .utils import get_logger, sanitize_filename
 
 logger = get_logger(__name__)
+
+FFMPEG_TIMEOUT = 600
 
 
 def _webvtt_to_srt(content: str) -> str:
@@ -68,6 +71,13 @@ class VideoDownloader:
         self.config = config
         self.session = session
 
+    def _build_headers_content(self) -> str:
+        return (
+            f"Authorization: Bearer {self.config.token}\r\n"
+            f"Origin: {self.config.domain}\r\n"
+            f"Referer: {self.config.domain}/\r\n"
+        )
+
     def get_quality_video_url(self, asset_data: Optional[Dict[str, Any]]) -> str:
         if not asset_data:
             return ""
@@ -99,9 +109,9 @@ class VideoDownloader:
             import queue
             import threading
 
-            q = queue.Queue()
+            q: queue.Queue = queue.Queue()
 
-            def reader():
+            def reader() -> None:
                 try:
                     while True:
                         if proc.stderr is None:
@@ -150,8 +160,6 @@ class VideoDownloader:
                     break
                 continue
 
-            import os
-
             try:
                 chunk = os.read(proc.stderr.fileno(), 1024)
             except (OSError, ValueError):
@@ -173,11 +181,7 @@ class VideoDownloader:
             yield buffer.strip().lower()
 
     def download_video(self, url: str, output_path: Path) -> subprocess.Popen:
-        headers_content = (
-            f"Authorization: Bearer {self.config.token}\r\n"
-            f"Origin: {self.config.domain}\r\n"
-            f"Referer: {self.config.domain}/\r\n"
-        )
+        headers_content = self._build_headers_content()
 
         cmd = [
             "ffmpeg",
@@ -199,8 +203,17 @@ class VideoDownloader:
             stdout=subprocess.DEVNULL,
         )
 
+    def wait_for_download(self, proc: subprocess.Popen, timeout: int = FFMPEG_TIMEOUT) -> int:
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            logger.error(f"FFmpeg process timed out after {timeout}s, killing")
+            proc.kill()
+            proc.wait(timeout=10)
+        return proc.returncode or -1
+
     def download_subtitles(self, course_id: int, lecture_id: int, output_path: Path) -> List[Path]:
-        downloaded = []
+        downloaded: List[Path] = []
         try:
             url = (
                 f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/subtitles"
@@ -236,7 +249,7 @@ class VideoDownloader:
         output_path: Path,
         is_interrupted: Optional[Callable] = None,
     ) -> List[Path]:
-        downloaded = []
+        downloaded: List[Path] = []
         try:
             url = f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/supplementary-assets"
             response = self.session.get(url, timeout=30)
@@ -254,7 +267,9 @@ class VideoDownloader:
                 try:
                     mat_response = self.session.get(file_url, timeout=30, stream=True)
                     if mat_response.status_code in [401, 403]:
-                        mat_response = requests.get(file_url, timeout=30, stream=True)
+                        mat_response = self.session.get(
+                            file_url, timeout=30, stream=True, headers={"Authorization": None}
+                        )
                     mat_response.raise_for_status()
                     mat_path = materials_dir / filename
                     with open(mat_path, "wb") as f:

@@ -1,5 +1,3 @@
-"""Tests for udemy_dl.config module."""
-
 import json
 import os
 from unittest.mock import patch
@@ -41,6 +39,12 @@ class TestConfigValidate:
         ok, msg = cfg.validate()
         assert ok is False
         assert "domain" in msg.lower()
+
+    def test_http_domain_rejected(self):
+        cfg = Config(token="a" * 20, client_id="b" * 10, domain="http://www.udemy.com")
+        ok, msg = cfg.validate()
+        assert ok is False
+        assert "https" in msg.lower()
 
     def test_invalid_quality(self):
         cfg = Config(token="a" * 20, client_id="b" * 10, quality="999")

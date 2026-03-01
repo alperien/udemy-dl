@@ -1,5 +1,3 @@
-"""Tests for udemy_dl.api module."""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -54,7 +52,8 @@ class TestFetchOwnedCourses:
         }
         responses = [_mock_response(page1), _mock_response(page2)]
         with patch.object(api.session, "get", side_effect=responses):
-            courses = api.fetch_owned_courses()
+            with patch("udemy_dl.api.time.sleep"):
+                courses = api.fetch_owned_courses()
         assert len(courses) == 2
 
     def test_skips_items_without_id_or_title(self):
@@ -87,7 +86,6 @@ class TestFetchOwnedCourses:
         with patch.object(api.session, "get", side_effect=responses):
             with patch("udemy_dl.api.time.sleep"):
                 courses = api.fetch_owned_courses()
-        # Should return the first page's courses even though page 2 failed
         assert len(courses) == 1
 
 

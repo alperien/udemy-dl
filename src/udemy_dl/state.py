@@ -1,9 +1,9 @@
 import json
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional, Set
 
 from .utils import CONFIG_DIR, get_logger
 
@@ -15,23 +15,32 @@ STATE_FILE = str(CONFIG_DIR / "download_state.json")
 class DownloadState:
     course_id: Optional[int] = None
     course_title: str = ""
-    completed_lectures: List[int] = field(default_factory=list)
+    completed_lectures: Set[int] = field(default_factory=set)
     total_lectures: int = 0
     last_updated: str = ""
 
     def to_dict(self) -> Dict:
-        return asdict(self)
+        return {
+            "course_id": self.course_id,
+            "course_title": self.course_title,
+            "completed_lectures": sorted(self.completed_lectures),
+            "total_lectures": self.total_lectures,
+            "last_updated": self.last_updated,
+        }
 
     def mark_completed(self, lecture_id: int) -> None:
-        """Add a lecture ID to the completed list if not already present."""
-        if lecture_id not in self.completed_lectures:
-            self.completed_lectures.append(lecture_id)
+        self.completed_lectures.add(lecture_id)
 
     @classmethod
     def from_dict(cls, data: Dict) -> "DownloadState":
-        valid_keys = set(cls.__dataclass_fields__)
-        filtered = {k: v for k, v in data.items() if k in valid_keys}
-        return cls(**filtered)
+        completed = data.get("completed_lectures", [])
+        return cls(
+            course_id=data.get("course_id"),
+            course_title=data.get("course_title", ""),
+            completed_lectures=set(completed) if isinstance(completed, list) else set(),
+            total_lectures=data.get("total_lectures", 0),
+            last_updated=data.get("last_updated", ""),
+        )
 
 
 class AppState:

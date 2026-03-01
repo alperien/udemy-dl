@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "udemy-dl"
-version = "2.1.0"
+dynamic = ["version"]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
@@ -26,6 +26,9 @@ dev = [
 
 [project.scripts]
 udemy-dl = "udemy_dl.main:run"
+
+[tool.setuptools.dynamic]
+version = {attr = "udemy_dl.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,5 +1,3 @@
-"""Tests for udemy_dl.main module (headless mode and CLI parsing)."""
-
 import sys
 from unittest.mock import patch
 
