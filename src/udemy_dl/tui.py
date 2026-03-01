@@ -232,7 +232,7 @@ class TUI:
                 curses.curs_set(1)
                 curses.echo()
                 key = keys[selected_idx]
-                prompt = f"| New {key} (Leave blank to cancel): "
+                prompt = f"| New {key} (Blank=cancel, 'CLEAR'=empty): "
                 self.safe_addstr(
                     height - 3,
                     0,
@@ -248,13 +248,10 @@ class TUI:
                 except Exception:
                     new_val = ""
                 if new_val:
-                    if key in ["download_subtitles", "download_materials"]:
+                    if new_val.upper() == "CLEAR":
+                        new_val = ""
+                    elif key in ["download_subtitles", "download_materials"]:
                         new_val = new_val.lower() in ("true", "1", "yes")
-                    elif key == "max_workers":
-                        try:
-                            new_val = int(new_val)
-                        except ValueError:
-                            new_val = config.max_workers
                     setattr(config, key, new_val)
                     from .config import save_config
 

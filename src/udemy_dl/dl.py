@@ -101,30 +101,30 @@ class VideoDownloader:
             return ""
 
     def read_ffmpeg_output(self, proc: subprocess.Popen) -> Generator[str, None, None]:
-        if sys.platform == "win32":
-            # select.select() doesn't work with pipes on Windows;
-            # fall back to blocking readline
-            while True:
-                line = proc.stderr.readline()
-                if not line:
+        buffer = bytearray()
+        while True:
+            if sys.platform != "win32":
+                import select
+
+                ready, _, _ = select.select([proc.stderr], [], [], 0.1)
+                if not ready:
                     if proc.poll() is not None:
                         break
                     continue
-                yield line.decode("utf-8", "ignore").strip().lower()
-        else:
-            import select
 
-            while True:
-                ready, _, _ = select.select([proc.stderr], [], [], 0.1)
-                if ready:
-                    line = proc.stderr.readline()
-                    if line:
-                        yield line.decode("utf-8", "ignore").strip().lower()
-                if proc.poll() is not None:
-                    remaining = proc.stderr.read()
-                    if remaining:
-                        yield remaining.decode("utf-8", "ignore").strip().lower()
-                    break
+            char = proc.stderr.read(1)
+            if not char:
+                break
+
+            if char in (b"\r", b"\n"):
+                if buffer:
+                    yield buffer.decode("utf-8", "ignore").strip().lower()
+                    buffer.clear()
+            else:
+                buffer.extend(char)
+
+        if buffer:
+            yield buffer.decode("utf-8", "ignore").strip().lower()
 
     def download_video(self, url: str, output_path: Path) -> subprocess.Popen:
         headers_content = (

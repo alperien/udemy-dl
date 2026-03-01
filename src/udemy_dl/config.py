@@ -27,7 +27,6 @@ class Config:
     client_id: str = ""
     dl_path: str = "downloads"
     quality: str = "1080"
-    max_workers: int = 1
     download_subtitles: bool = True
     download_materials: bool = True
 
@@ -40,8 +39,6 @@ class Config:
             return False, "Invalid domain URL"
         if self.quality not in QUALITY_OPTIONS:
             return False, f"Invalid quality option. Choose from: {QUALITY_OPTIONS}"
-        if self.max_workers < 1 or self.max_workers > 5:
-            return False, "max_workers must be between 1 and 5"
         return True, ""
 
     def to_dict(self) -> dict:
@@ -49,19 +46,12 @@ class Config:
 
 
 def load_config() -> Config:
-    try:
-        max_workers = int(os.getenv("UDEMY_MAX_WORKERS", "1"))
-    except ValueError:
-        logger.warning("Invalid UDEMY_MAX_WORKERS env var, defaulting to 1")
-        max_workers = 1
-
     config = Config(
         domain=os.getenv("UDEMY_DOMAIN", "https://www.udemy.com"),
         token=os.getenv("UDEMY_TOKEN", ""),
         client_id=os.getenv("UDEMY_CLIENT_ID", ""),
         dl_path=os.getenv("UDEMY_DL_PATH", "downloads"),
         quality=os.getenv("UDEMY_QUALITY", "1080"),
-        max_workers=max_workers,
         download_subtitles=os.getenv("UDEMY_DOWNLOAD_SUBTITLES", "true").lower()
         == "true",
         download_materials=os.getenv("UDEMY_DOWNLOAD_MATERIALS", "true").lower()
@@ -81,8 +71,6 @@ def load_config() -> Config:
                 config.dl_path = saved.get("dl_path", config.dl_path).strip()
             if not os.getenv("UDEMY_QUALITY"):
                 config.quality = saved.get("quality", config.quality).strip()
-            if not os.getenv("UDEMY_MAX_WORKERS"):
-                config.max_workers = saved.get("max_workers", config.max_workers)
             if not os.getenv("UDEMY_DOWNLOAD_SUBTITLES"):
                 config.download_subtitles = saved.get(
                     "download_subtitles", config.download_subtitles
