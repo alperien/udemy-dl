@@ -33,9 +33,10 @@ issues and pull requests are very welcome, though responses may be slow.**
 
 on Windows you also need:
 
-- **`windows-curses`** – installed automatically by `pip install -e .` (declared in `pyproject.toml`). if you install dependencies manually, run:
+- **python 3.9 – 3.13** – `windows-curses` only ships pre-built wheels for these versions. if you're on a newer Python and `pip install` fails with *"could not find a version that satisfies the requirement windows-curses"*, either downgrade Python or use `--headless` mode (which does not need curses).
+- **`windows-curses>=2.3.2`** – installed automatically by `pip install -e .` (declared in `pyproject.toml`). if you install dependencies manually, run:
   ```powershell
-  pip install windows-curses
+  pip install "windows-curses>=2.3.2"
   ```
 - **ffmpeg in your `PATH`** – the easiest ways to get it:
   ```powershell
@@ -71,7 +72,9 @@ on Windows (PowerShell):
 ```powershell
 git clone https://github.com/alperien/udemy-dl.git
 cd udemy-dl
-pip install -e .
+pipx install -e .
+# or, if you don't have pipx:
+# pip install -e .
 ```
 
 > `windows-curses` is pulled in automatically on Windows via the platform marker in [`pyproject.toml`](pyproject.toml:13).
