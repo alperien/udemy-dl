@@ -28,6 +28,33 @@ issues and pull requests are very welcome, though responses may be slow.**
 - [`ffmpeg`](https://ffmpeg.org/download.html) in your `PATH` (required)
 - `ffprobe` in your `PATH` (optional, enables video validation)
 
+### windows
+
+on Windows you also need:
+
+- **`windows-curses`** – installed automatically by `pip install -e .` (declared in `pyproject.toml`). if you install dependencies manually, run:
+  ```powershell
+  pip install windows-curses
+  ```
+- **ffmpeg in your `PATH`** – the easiest ways to get it:
+  ```powershell
+  # winget (Windows 10 1709+)
+  winget install --id Gyan.FFmpeg
+
+  # or chocolatey
+  choco install ffmpeg
+
+  # or scoop
+  scoop install ffmpeg
+  ```
+  alternatively, download a static build from [ffmpeg.org](https://ffmpeg.org/download.html#build-windows), extract it, and add the `bin` folder to your system `PATH`.
+  verify installation with:
+  ```powershell
+  ffmpeg -version
+  ffprobe -version
+  ```
+- **terminal** – use **Windows Terminal**, **PowerShell**, or **cmd.exe**. the curses-based TUI requires a terminal that supports standard escape sequences. **Git Bash / MSYS2 may not work correctly** with the interactive TUI; use `--headless` mode as a workaround.
+
 ---
 
 ## installation
@@ -37,6 +64,16 @@ git clone https://github.com/alperien/udemy-dl.git
 cd udemy-dl
 pip install -e .
 ```
+
+on Windows (PowerShell):
+
+```powershell
+git clone https://github.com/alperien/udemy-dl.git
+cd udemy-dl
+pip install -e .
+```
+
+> `windows-curses` is pulled in automatically on Windows via the platform marker in [`pyproject.toml`](pyproject.toml:13).
 
 ---
 
@@ -90,9 +127,13 @@ udemy-dl --headless --quality 720 --no-subtitles --no-materials
 
 config is in `~/.config/udemy-dl/config.json` (permissions: `600`).
 
+on Windows the default path is `C:\Users\<you>\.config\udemy-dl\config.json`.
+
 ## logs
 
 logs are in `~/.config/udemy-dl/downloader.log`.
+
+on Windows: `C:\Users\<you>\.config\udemy-dl\downloader.log`.
 
 ---
 
