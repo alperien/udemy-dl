@@ -3,7 +3,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Callable, Dict, Generator, List, Optional
 
 import requests
 
@@ -52,6 +52,7 @@ def _webvtt_to_srt(content: str) -> str:
                     text_line = raw_lines[i]
                     if text_line.strip() == "" or "-->" in text_line:
                         break
+                    text_line = re.sub(r"<[^>]+>", "", text_line)
                     srt_blocks.append(text_line.rstrip())
                     i += 1
                 srt_blocks.append("")
@@ -71,8 +72,6 @@ class VideoDownloader:
     def get_quality_video_url(self, asset_data: Optional[Dict[str, Any]]) -> str:
         if not asset_data:
             return ""
-        if hls_url := asset_data.get("hls_url"):
-            return str(hls_url) if hls_url else ""
         quality_options = ["2160", "1440", "1080", "720", "480", "360"]
         try:
             pref_index = quality_options.index(self.config.quality)
@@ -85,13 +84,19 @@ class VideoDownloader:
                 if v.get("label") == quality_options[i]:
                     return str(v.get("file", ""))
         try:
-            best_video = max(videos, key=lambda v: int(v.get("label", "0") or 0))
-            return str(best_video.get("file", ""))
+            if videos:
+                best_video = max(videos, key=lambda v: int(v.get("label", "0") or 0))
+                return str(best_video.get("file", ""))
         except (ValueError, TypeError):
-            return ""
+            pass
+
+        if hls_url := asset_data.get("hls_url"):
+            return str(hls_url) if hls_url else ""
+
+        return ""
 
     def read_ffmpeg_output(self, proc: subprocess.Popen) -> Generator[str, None, None]:
-        buffer = bytearray()
+        buffer = ""
         while True:
             if sys.platform != "win32":
                 import select
@@ -106,19 +111,28 @@ class VideoDownloader:
 
             if proc.stderr is None:
                 break
-            char = proc.stderr.read(1)
-            if not char:
+
+            import os
+
+            try:
+                chunk = os.read(proc.stderr.fileno(), 1024)
+            except Exception:
                 break
 
-            if char in (b"\r", b"\n"):
-                if buffer:
-                    yield buffer.decode("utf-8", "ignore").strip().lower()
-                    buffer.clear()
-            else:
-                buffer.extend(char)
+            if not chunk:
+                if proc.poll() is not None:
+                    break
+                continue
 
-        if buffer:
-            yield buffer.decode("utf-8", "ignore").strip().lower()
+            buffer += chunk.decode("utf-8", "ignore")
+            parts = re.split(r"[\r\n]+", buffer)
+            buffer = parts.pop()
+            for line in parts:
+                if line.strip():
+                    yield line.strip().lower()
+
+        if buffer.strip():
+            yield buffer.strip().lower()
 
     def download_video(self, url: str, output_path: Path) -> subprocess.Popen:
         headers_content = (
@@ -196,7 +210,13 @@ class VideoDownloader:
             logger.warning(f"Failed to fetch subtitles for lecture {lecture_id}: {e}")
         return downloaded
 
-    def download_materials(self, course_id: int, lecture_id: int, output_path: Path) -> List[Path]:
+    def download_materials(
+        self,
+        course_id: int,
+        lecture_id: int,
+        output_path: Path,
+        is_interrupted: Optional[Callable] = None,
+    ) -> List[Path]:
         downloaded = []
         try:
             url = f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/supplementary-assets"
@@ -206,6 +226,8 @@ class VideoDownloader:
             materials_dir = output_path.parent / "00-materials"
             materials_dir.mkdir(parents=True, exist_ok=True)
             for asset in data.get("results", []):
+                if is_interrupted and is_interrupted():
+                    break
                 file_url = asset.get("file_url")
                 filename = sanitize_filename(asset.get("filename", "unknown"))
                 if not file_url:
@@ -218,9 +240,15 @@ class VideoDownloader:
                     mat_path = materials_dir / filename
                     with open(mat_path, "wb") as f:
                         for chunk in mat_response.iter_content(chunk_size=8192):
+                            if is_interrupted and is_interrupted():
+                                break
                             if chunk:
                                 f.write(chunk)
-                    if mat_path.exists() and mat_path.stat().st_size > 0:
+                    if is_interrupted and is_interrupted():
+                        logger.warning(f"Material download interrupted: {filename}")
+                        if mat_path.exists():
+                            mat_path.unlink()
+                    elif mat_path.exists() and mat_path.stat().st_size > 0:
                         downloaded.append(mat_path)
                         logger.info(f"Downloaded material: {filename}")
                     else:

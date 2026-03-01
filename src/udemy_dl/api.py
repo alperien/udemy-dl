@@ -1,4 +1,5 @@
 import json
+import urllib.parse
 from typing import Dict, List
 
 import requests
@@ -45,6 +46,8 @@ class UdemyAPI:
                     if course_id and course_title:
                         courses.append({"id": course_id, "title": course_title})
                 url = data.get("next")
+                if url:
+                    url = urllib.parse.urljoin(self.config.domain, url)
             except (Timeout, HTTPError, RequestException) as e:
                 logger.error(f"Error fetching courses: {e}")
                 break
@@ -60,6 +63,8 @@ class UdemyAPI:
                 data = response.json()
                 items.extend(data.get("results", []))
                 url = data.get("next")
+                if url:
+                    url = urllib.parse.urljoin(self.config.domain, url)
             except (Timeout, HTTPError, RequestException, json.JSONDecodeError) as e:
                 logger.error(f"Error fetching curriculum: {e}")
                 break

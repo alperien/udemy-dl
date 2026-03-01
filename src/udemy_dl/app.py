@@ -150,18 +150,19 @@ class Application:
                 lecture_id = item.get("id")
                 asset = item.get("asset")
                 url = self.downloader.get_quality_video_url(asset) if asset else ""
-                if current_chapter_dir:
-                    file_path = current_chapter_dir / f"{lecture_index:03d} - {clean_title}.mp4"
-                    download_queue.append(
-                        {
-                            "title": clean_title,
-                            "url": url,
-                            "id": lecture_id,
-                            "path": file_path,
-                        }
-                    )
-                    ui_state["total_vids"] += 1
-                    self.state.current_course_state.total_lectures += 1
+                if not current_chapter_dir:
+                    current_chapter_dir = base_dir / "00 - Uncategorized"
+                file_path = current_chapter_dir / f"{lecture_index:03d} - {clean_title}.mp4"
+                download_queue.append(
+                    {
+                        "title": clean_title,
+                        "url": url,
+                        "id": lecture_id,
+                        "path": file_path,
+                    }
+                )
+                ui_state["total_vids"] += 1
+                self.state.current_course_state.total_lectures += 1
         return download_queue
 
     def _download_lecture(
@@ -187,7 +188,9 @@ class Application:
                     self.add_log(f"[SUBS] Downloaded {len(subs)} subtitle track(s)")
 
             if self.config.download_materials and lecture_id:
-                mats = self.downloader.download_materials(course["id"], lecture_id, out_path)
+                mats = self.downloader.download_materials(
+                    course["id"], lecture_id, out_path, lambda: self.download_interrupted
+                )
                 if mats:
                     self.add_log(f"[MATS] Downloaded {len(mats)} material file(s)")
 
@@ -226,6 +229,8 @@ class Application:
             else:
                 self.add_log(f"[WARN] Invalid file detected, re-downloading: {item['title'][:20]}")
                 out_path.unlink()
+        elif out_path.exists():
+            self.add_log(f"[WARN] Overwriting partial file: {item['title'][:20]}")
 
         self.add_log(f"[DOWNLOAD] Starting: {item['title'][:30]}...")
         proc = self.downloader.download_video(item["url"], out_path)
