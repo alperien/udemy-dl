@@ -25,7 +25,6 @@ class DownloadState:
 
     @classmethod
     def from_dict(cls, data: Dict) -> "DownloadState":
-        # Only pass keys that match dataclass fields to avoid TypeError on extras
         valid_keys = set(cls.__dataclass_fields__)
         filtered = {k: v for k, v in data.items() if k in valid_keys}
         return cls(**filtered)

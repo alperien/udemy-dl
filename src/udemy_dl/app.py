@@ -9,7 +9,7 @@ from .api import UdemyAPI
 from .config import load_config
 from .dl import VideoDownloader
 from .state import AppState, DownloadState
-from .tui import TUI, COLOR_SUCCESS, COLOR_DIM
+from .tui import COLOR_DIM, COLOR_SUCCESS, TUI
 from .utils import (
     get_logger,
     sanitize_filename,
@@ -43,10 +43,6 @@ class Application:
 
     def _setup_signal_handlers(self):
         def handler(sig, frame):
-            # Only set flags here — performing file I/O inside a signal
-            # handler is unsafe and can deadlock or corrupt the state file
-            # if the signal fires during another write.  The main download
-            # loop checks self.download_interrupted and calls save_state().
             self.download_interrupted = True
             self.state.interrupted = True
 
@@ -154,9 +150,7 @@ class Application:
                 asset = item.get("asset")
                 url = self.downloader.get_quality_video_url(asset)
                 if url and current_chapter_dir:
-                    file_path = (
-                        current_chapter_dir / f"{lecture_index:03d} - {clean_title}.mp4"
-                    )
+                    file_path = current_chapter_dir / f"{lecture_index:03d} - {clean_title}.mp4"
                     download_queue.append(
                         {
                             "title": clean_title,
@@ -169,7 +163,15 @@ class Application:
                     self.state.current_course_state.total_lectures += 1
         return download_queue
 
-    def _download_lecture(self, item: Dict, course: Dict, ui_state: Dict, index: int, total: int, completed_lectures: set):
+    def _download_lecture(
+        self,
+        item: Dict,
+        course: Dict,
+        ui_state: Dict,
+        index: int,
+        total: int,
+        completed_lectures: set,
+    ):
         ui_state["current_file"] = item["title"]
         self.tui.render_dashboard(ui_state, index, total, self.log_buffer)
 
@@ -178,9 +180,7 @@ class Application:
         lecture_id = item.get("id")
 
         if lecture_id and lecture_id in completed_lectures:
-            self.add_log(
-                f"[CACHE] Skipping completed lecture: {item['title'][:30]}..."
-            )
+            self.add_log(f"[CACHE] Skipping completed lecture: {item['title'][:30]}...")
             ui_state["done_vids"] += 1
             self.state.current_course_state.completed_lectures.append(lecture_id)
             return
@@ -193,15 +193,11 @@ class Application:
                 )
                 ui_state["done_vids"] += 1
                 if lecture_id:
-                    self.state.current_course_state.completed_lectures.append(
-                        lecture_id
-                    )
+                    self.state.current_course_state.completed_lectures.append(lecture_id)
                     self.state.save_state()
                 return
             else:
-                self.add_log(
-                    f"[WARN] Invalid file detected, re-downloading: {item['title'][:20]}"
-                )
+                self.add_log(f"[WARN] Invalid file detected, re-downloading: {item['title'][:20]}")
                 out_path.unlink()
 
         self.add_log(f"[DOWNLOAD] Starting: {item['title'][:30]}...")
@@ -210,9 +206,7 @@ class Application:
         ui_state["vid_duration_secs"] = 0
         ui_state["vid_current_secs"] = 0
 
-        DURATION_REGEX = re.compile(
-            r"duration:\s*(?P<time>\d{2}:\d{2}:\d{2}(?:\.\d+)?)"
-        )
+        DURATION_REGEX = re.compile(r"duration:\s*(?P<time>\d{2}:\d{2}:\d{2}(?:\.\d+)?)")
         STATS_REGEX = re.compile(
             r"size=\s*(?P<size>\d+[a-z]*)\s+time=(?P<time>\d{2}:\d{2}:\d{2}(?:\.\d+)?).*?speed=\s*(?P<speed>[\d\.]+x)"
         )
@@ -226,9 +220,7 @@ class Application:
                 if ui_state["vid_duration_secs"] == 0:
                     if match := DURATION_REGEX.search(line):
                         time_val = match.group("time").split(".")[0]
-                        ui_state["vid_duration_secs"] = time_string_to_seconds(
-                            time_val
-                        )
+                        ui_state["vid_duration_secs"] = time_string_to_seconds(time_val)
                 if match := STATS_REGEX.search(line):
                     time_val = match.group("time").split(".")[0]
                     ui_state["vid_current_secs"] = min(
@@ -248,28 +240,20 @@ class Application:
             ui_state["done_vids"] += 1
             self.add_log(f"[DONE] Finished: {item['title'][:30]}")
             if lecture_id:
-                self.state.current_course_state.completed_lectures.append(
-                    lecture_id
-                )
+                self.state.current_course_state.completed_lectures.append(lecture_id)
                 self.state.save_state()
 
             if self.config.download_subtitles and lecture_id:
-                subs = self.downloader.download_subtitles(
-                    course["id"], lecture_id, out_path
-                )
+                subs = self.downloader.download_subtitles(course["id"], lecture_id, out_path)
                 if subs:
                     self.add_log(f"[SUBS] Downloaded {len(subs)} subtitle track(s)")
 
             if self.config.download_materials and lecture_id:
-                mats = self.downloader.download_materials(
-                    course["id"], lecture_id, out_path
-                )
+                mats = self.downloader.download_materials(course["id"], lecture_id, out_path)
                 if mats:
                     self.add_log(f"[MATS] Downloaded {len(mats)} material file(s)")
         else:
-            self.add_log(
-                f"[ERROR] Download failed or invalid file: {item['title'][:30]}"
-            )
+            self.add_log(f"[ERROR] Download failed or invalid file: {item['title'][:30]}")
             if out_path.exists():
                 out_path.unlink()
 
@@ -293,9 +277,7 @@ class Application:
         completed_lectures = set()
         if saved_state and saved_state.course_id == course["id"]:
             completed_lectures = set(saved_state.completed_lectures)
-            self.add_log(
-                f"[RESUME] Found {len(completed_lectures)} previously completed lectures"
-            )
+            self.add_log(f"[RESUME] Found {len(completed_lectures)} previously completed lectures")
 
         for item in download_queue:
             if self.download_interrupted:

@@ -9,7 +9,6 @@ logger = None
 
 
 def _main(stdscr):
-    """Internal main function called by curses.wrapper()"""
     global logger
     logger = setup_logging()
     try:
@@ -27,7 +26,6 @@ def _main(stdscr):
 
 
 def run():
-    """Entry point for console_scripts"""
     curses.wrapper(_main)
 
 

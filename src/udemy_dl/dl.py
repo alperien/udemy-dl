@@ -14,24 +14,20 @@ logger = get_logger(__name__)
 
 
 def _webvtt_to_srt(content: str) -> str:
-    """Convert WebVTT subtitle content to SRT format."""
     if not content.startswith("WEBVTT"):
         return content
 
-    # Strip the WEBVTT header and any metadata lines before first cue
     lines = content.split("\n")
     cue_lines: List[str] = []
     in_header = True
     for line in lines:
         if in_header:
-            # Skip until we find the first timestamp line
             if "-->" in line:
                 in_header = False
                 cue_lines.append(line)
         else:
             cue_lines.append(line)
 
-    # Parse cues and rebuild as SRT
     srt_blocks: List[str] = []
     cue_index = 0
     i = 0
@@ -41,15 +37,10 @@ def _webvtt_to_srt(content: str) -> str:
         line = raw_lines[i].strip()
         if "-->" in line:
             cue_index += 1
-            # Convert WebVTT timestamp separators: '.' → ','
-            # Also strip any positioning metadata after the timestamp
-            timestamp_match = re.match(
-                r"([\d:.]+)\s*-->\s*([\d:.]+)", line
-            )
+            timestamp_match = re.match(r"([\d:.]+)\s*-->\s*([\d:.]+)", line)
             if timestamp_match:
                 start = timestamp_match.group(1).replace(".", ",")
                 end = timestamp_match.group(2).replace(".", ",")
-                # Ensure HH:MM:SS,mmm format
                 if start.count(":") == 1:
                     start = "00:" + start
                 if end.count(":") == 1:
@@ -57,16 +48,15 @@ def _webvtt_to_srt(content: str) -> str:
                 srt_blocks.append(str(cue_index))
                 srt_blocks.append(f"{start} --> {end}")
                 i += 1
-                # Collect text lines until empty line or next cue
                 while i < len(raw_lines):
                     text_line = raw_lines[i]
                     if text_line.strip() == "" or "-->" in text_line:
                         break
                     srt_blocks.append(text_line.rstrip())
                     i += 1
-                srt_blocks.append("")  # blank line between cues
+                srt_blocks.append("")
             else:
-                i += 1  # skip malformed cue line
+                i += 1
         else:
             i += 1
 
@@ -82,7 +72,7 @@ class VideoDownloader:
         if not asset_data:
             return ""
         if hls_url := asset_data.get("hls_url"):
-            return hls_url
+            return str(hls_url) if hls_url else ""
         quality_options = ["2160", "1440", "1080", "720", "480", "360"]
         try:
             pref_index = quality_options.index(self.config.quality)
@@ -93,10 +83,10 @@ class VideoDownloader:
         for i in range(pref_index, len(quality_options)):
             for v in videos:
                 if v.get("label") == quality_options[i]:
-                    return v.get("file", "")
+                    return str(v.get("file", ""))
         try:
             best_video = max(videos, key=lambda v: int(v.get("label", "0") or 0))
-            return best_video.get("file", "")
+            return str(best_video.get("file", ""))
         except (ValueError, TypeError):
             return ""
 
@@ -106,12 +96,16 @@ class VideoDownloader:
             if sys.platform != "win32":
                 import select
 
+                if proc.stderr is None:
+                    break
                 ready, _, _ = select.select([proc.stderr], [], [], 0.1)
                 if not ready:
                     if proc.poll() is not None:
                         break
                     continue
 
+            if proc.stderr is None:
+                break
             char = proc.stderr.read(1)
             if not char:
                 break
@@ -133,47 +127,51 @@ class VideoDownloader:
             f"Referer: {self.config.domain}/\r\n"
         )
 
-        # Avoid leaking the auth token in the process argument list (visible
-        # via ``ps aux`` or /proc/PID/cmdline).  On POSIX we pass the headers
-        # through an environment variable and expand it inside a shell wrapper
-        # so only ``$_UDEMY_HEADERS`` appears in argv.  The environment is
-        # protected by the OS — only the same uid (or root) can read
-        # /proc/PID/environ.  On Windows, fall back to direct CLI args since
-        # the security model differs.
         env = {**os.environ, "_UDEMY_HEADERS": headers_content}
 
         if sys.platform == "win32":
             cmd = [
-                "ffmpeg", "-y",
-                "-headers", headers_content,
-                "-i", url,
-                "-c", "copy",
-                "-bsf:a", "aac_adtstoasc",
+                "ffmpeg",
+                "-y",
+                "-headers",
+                headers_content,
+                "-i",
+                url,
+                "-c",
+                "copy",
+                "-bsf:a",
+                "aac_adtstoasc",
                 str(output_path),
             ]
             return subprocess.Popen(
-                cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, env=env,
+                cmd,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                env=env,
             )
 
-        # POSIX: use shell expansion so the token stays out of argv
         cmd = [
-            "sh", "-c",
+            "sh",
+            "-c",
             'exec ffmpeg -y -headers "$_UDEMY_HEADERS" '
             '-i "$1" -c copy -bsf:a aac_adtstoasc "$2"',
-            "_",  # $0 placeholder
+            "_",
             url,
             str(output_path),
         ]
         return subprocess.Popen(
-            cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, env=env,
+            cmd,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            env=env,
         )
 
-    def download_subtitles(
-        self, course_id: int, lecture_id: int, output_path: Path
-    ) -> List[Path]:
+    def download_subtitles(self, course_id: int, lecture_id: int, output_path: Path) -> List[Path]:
         downloaded = []
         try:
-            url = f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/subtitles"
+            url = (
+                f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/subtitles"
+            )
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
             data = response.json()
@@ -198,9 +196,7 @@ class VideoDownloader:
             logger.warning(f"Failed to fetch subtitles for lecture {lecture_id}: {e}")
         return downloaded
 
-    def download_materials(
-        self, course_id: int, lecture_id: int, output_path: Path
-    ) -> List[Path]:
+    def download_materials(self, course_id: int, lecture_id: int, output_path: Path) -> List[Path]:
         downloaded = []
         try:
             url = f"{self.config.domain}/api-2.0/courses/{course_id}/lectures/{lecture_id}/supplementary-assets"
@@ -216,15 +212,12 @@ class VideoDownloader:
                     continue
                 try:
                     mat_response = self.session.get(file_url, timeout=30, stream=True)
-                    # Retry logic for auth failures - try different approaches
                     retry_count = 0
                     max_retries = 2
                     while mat_response.status_code in [401, 403] and retry_count < max_retries:
                         retry_count += 1
                         if retry_count == 1:
-                            # First retry: try unauthenticated request
                             mat_response = requests.get(file_url, timeout=30, stream=True)
-                        # else: max retries reached, will raise on raise_for_status()
                     mat_response.raise_for_status()
                     mat_path = materials_dir / filename
                     with open(mat_path, "wb") as f:

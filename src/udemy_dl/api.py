@@ -64,5 +64,3 @@ class UdemyAPI:
                 logger.error(f"Error fetching curriculum: {e}")
                 break
         return items
-
-

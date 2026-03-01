@@ -8,8 +8,6 @@ from .utils import get_logger, set_secure_permissions
 
 logger = get_logger(__name__)
 
-# Store configuration in a well-known directory so it is found regardless of
-# the working directory the user launches from.
 _CONFIG_DIR = Path(os.getenv("UDEMY_DL_CONFIG_DIR", Path.home() / ".config" / "udemy-dl"))
 try:
     _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -52,10 +50,8 @@ def load_config() -> Config:
         client_id=os.getenv("UDEMY_CLIENT_ID", ""),
         dl_path=os.getenv("UDEMY_DL_PATH", "downloads"),
         quality=os.getenv("UDEMY_QUALITY", "1080"),
-        download_subtitles=os.getenv("UDEMY_DOWNLOAD_SUBTITLES", "true").lower()
-        == "true",
-        download_materials=os.getenv("UDEMY_DOWNLOAD_MATERIALS", "true").lower()
-        == "true",
+        download_subtitles=os.getenv("UDEMY_DOWNLOAD_SUBTITLES", "true").lower() == "true",
+        download_materials=os.getenv("UDEMY_DOWNLOAD_MATERIALS", "true").lower() == "true",
     )
     config_path = Path(CONFIG_FILE)
     if config_path.exists():

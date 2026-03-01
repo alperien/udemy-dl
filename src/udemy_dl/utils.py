@@ -14,18 +14,14 @@ def _ffprobe_available() -> bool:
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get a module-level logger under the 'udemy_dl' hierarchy."""
-    # Normalize names so all module loggers share a common root
     canonical = name.replace("src.udemy_dl.", "udemy_dl.").replace("src.", "")
     logger = logging.getLogger(canonical)
     return logger
 
 
 def setup_logging() -> logging.Logger:
-    """Configure the root 'udemy_dl' logger (call once at startup)."""
     root = logging.getLogger("udemy_dl")
     if root.handlers:
-        # Already configured — avoid duplicate handlers
         return root
     root.setLevel(logging.DEBUG)
     root.propagate = False
@@ -62,12 +58,6 @@ def set_secure_permissions(file_path: Path) -> None:
 
 
 def validate_video(path: Path) -> bool:
-    """Validate a video file using ffprobe.
-
-    Returns True if the file is a valid video with duration > 0.
-    If ffprobe is not available, conservatively returns True
-    (assumes the file is valid rather than triggering re-downloads).
-    """
     if not _ffprobe_available():
         return True
 

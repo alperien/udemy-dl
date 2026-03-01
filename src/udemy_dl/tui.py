@@ -1,5 +1,5 @@
 import curses
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from .config import Config
 from .utils import get_logger
@@ -65,9 +65,7 @@ class TUI:
             bar += ">" + " " * (bar_width - filled - 1)
         self.safe_addstr(y, x, prefix, COLOR_DEFAULT, curses.A_BOLD)
         self.safe_addstr(y, x + len(prefix) + 1, f"[{bar}]", color)
-        self.safe_addstr(
-            y, x + len(prefix) + bar_width + 3, f" {suffix}", COLOR_DEFAULT
-        )
+        self.safe_addstr(y, x + len(prefix) + bar_width + 3, f" {suffix}", COLOR_DEFAULT)
 
     def render_dashboard(
         self,
@@ -86,10 +84,7 @@ class TUI:
         self.safe_addstr(
             0,
             0,
-            f"+-- Downloading Course [{course_index}/{total_courses}] ".ljust(
-                width - 1, "-"
-            )
-            + "+",
+            f"+-- Downloading Course [{course_index}/{total_courses}] ".ljust(width - 1, "-") + "+",
             COLOR_ACCENT,
         )
         self.safe_addstr(
@@ -100,9 +95,7 @@ class TUI:
             curses.A_BOLD,
         )
         overall_pct = (
-            (state["done_vids"] / state["total_vids"] * 100)
-            if state["total_vids"] > 0
-            else 0
+            (state["done_vids"] / state["total_vids"] * 100) if state["total_vids"] > 0 else 0
         )
         self.draw_progress_bar(
             2,
@@ -126,9 +119,7 @@ class TUI:
             if state["vid_duration_secs"] > 0
             else 0
         )
-        self.draw_progress_bar(
-            6, 2, width - 4, vid_pct, "Video  :", f"{vid_pct:3.0f}%", COLOR_WARN
-        )
+        self.draw_progress_bar(6, 2, width - 4, vid_pct, "Video  :", f"{vid_pct:3.0f}%", COLOR_WARN)
 
         log_start_y = 9
         for idx, line in enumerate(log[-(height - log_start_y - 1) :]):
@@ -150,9 +141,7 @@ class TUI:
             COLOR_ERROR,
             curses.A_BOLD,
         )
-        self.safe_addstr(
-            height // 2 + 1, max(0, (width - 40) // 2), "Press any key...", COLOR_DIM
-        )
+        self.safe_addstr(height // 2 + 1, max(0, (width - 40) // 2), "Press any key...", COLOR_DIM)
         self.stdscr.refresh()
         self.stdscr.getch()
 
@@ -179,11 +168,7 @@ class TUI:
         for i, line in enumerate(lines):
             y = start_y + i
             if y < height - 1:
-                color = (
-                    COLOR_WARN
-                    if "⚠️" in line or "WARNING" in line.upper()
-                    else COLOR_DEFAULT
-                )
+                color = COLOR_WARN if "⚠️" in line or "WARNING" in line.upper() else COLOR_DEFAULT
                 self.safe_addstr(y, start_x, line.ljust(box_width)[:box_width], color)
         self.stdscr.refresh()
         while True:
@@ -200,9 +185,7 @@ class TUI:
         while True:
             self.stdscr.clear()
             height, width = self.stdscr.getmaxyx()
-            self.safe_addstr(
-                0, 0, "+-- Settings ".ljust(width - 1, "-") + "+", COLOR_ACCENT
-            )
+            self.safe_addstr(0, 0, "+-- Settings ".ljust(width - 1, "-") + "+", COLOR_ACCENT)
             for i, key in enumerate(keys):
                 prefix = ">" if i == selected_idx else " "
                 color = COLOR_SUCCESS if i == selected_idx else COLOR_DIM
@@ -211,9 +194,7 @@ class TUI:
                     val = "*" * min(len(val), 20) + ("..." if len(val) > 20 else "")
                 if len(val) > width - 25:
                     val = val[: width - 28] + "..."
-                self.safe_addstr(
-                    i + 2, 0, f"| {prefix} {key:<20} : {val}", color, 0, width - 2
-                )
+                self.safe_addstr(i + 2, 0, f"| {prefix} {key:<20} : {val}", color, 0, width - 2)
             self.safe_addstr(
                 height - 2,
                 0,
@@ -240,11 +221,7 @@ class TUI:
                     COLOR_WARN,
                 )
                 try:
-                    new_val = (
-                        self.stdscr.getstr(height - 3, len(prompt), 100)
-                        .decode()
-                        .strip()
-                    )
+                    new_val = self.stdscr.getstr(height - 3, len(prompt), 100).decode().strip()
                 except Exception:
                     new_val = ""
                 if new_val:
@@ -262,20 +239,17 @@ class TUI:
 
     def select_courses(self, courses: List[Dict]) -> List[Dict]:
         curses.curs_set(0)
-        selected = set()
+        selected: Set[int] = set()
         selected_idx = 0
         scroll_offset = 0
         while True:
             self.stdscr.clear()
             height, width = self.stdscr.getmaxyx()
-            self.safe_addstr(
-                0, 0, "+-- Select Courses ".ljust(width - 1, "-") + "+", COLOR_ACCENT
-            )
+            self.safe_addstr(0, 0, "+-- Select Courses ".ljust(width - 1, "-") + "+", COLOR_ACCENT)
             self.safe_addstr(
                 1,
                 0,
-                "| [Space] Toggle | [Enter] Confirm | [Q] Cancel ".ljust(width - 1, " ")
-                + "|",
+                "| [Space] Toggle | [Enter] Confirm | [Q] Cancel ".ljust(width - 1, " ") + "|",
                 COLOR_DEFAULT,
             )
             visible_items = height - 5
@@ -325,7 +299,7 @@ class TUI:
                 if not selected and len(courses) > 0:
                     selected.add(selected_idx)
                 break
-        return [courses[i] for i in sorted(list(selected))]
+        return [courses[i] for i in sorted(selected)]
 
     def main_menu(self, config: Config) -> bool:
         options = ["Download Courses", "Settings", "Help", "Exit"]
@@ -333,15 +307,11 @@ class TUI:
         while True:
             self.stdscr.clear()
             height, width = self.stdscr.getmaxyx()
-            self.safe_addstr(
-                0, 0, "+-- Main Menu ".ljust(width - 1, "-") + "+", COLOR_ACCENT
-            )
+            self.safe_addstr(0, 0, "+-- Main Menu ".ljust(width - 1, "-") + "+", COLOR_ACCENT)
             for i, opt in enumerate(options):
                 prefix = ">" if i == selected_idx else " "
                 color = COLOR_SUCCESS if i == selected_idx else COLOR_DIM
-                self.safe_addstr(
-                    i + 2, 0, f"| {prefix} [{i+1}] {opt}", color, 0, width - 2
-                )
+                self.safe_addstr(i + 2, 0, f"| {prefix} [{i+1}] {opt}", color, 0, width - 2)
             self.stdscr.refresh()
             ch = self.stdscr.getch()
             if ch == curses.KEY_UP and selected_idx > 0:
@@ -379,14 +349,10 @@ class TUI:
             "  ⚠️  WARNING: For PERSONAL BACKUP ONLY!",
             "",
         ]
-        self.safe_addstr(
-            0, 0, "+-- Help Menu ".ljust(width - 1, "-") + "+", COLOR_ACCENT
-        )
+        self.safe_addstr(0, 0, "+-- Help Menu ".ljust(width - 1, "-") + "+", COLOR_ACCENT)
         for y in range(1, min(height - 3, len(lines) + 1)):
             text = lines[y - 1] if y - 1 < len(lines) else ""
-            self.safe_addstr(
-                y, 0, f"| {text}".ljust(width - 1, " ") + "|", COLOR_DEFAULT
-            )
+            self.safe_addstr(y, 0, f"| {text}".ljust(width - 1, " ") + "|", COLOR_DEFAULT)
         self.safe_addstr(
             height - 2,
             0,
