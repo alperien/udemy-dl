@@ -60,7 +60,7 @@ udemy-dl
 
 ### headless mode
 
-run without the interactive TUI (useful for scripts/CI):
+run without the interactive TUI:
 
 ```bash
 # download all owned courses
