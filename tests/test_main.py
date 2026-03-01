@@ -2,6 +2,7 @@ import sys
 from unittest.mock import patch
 
 import pytest
+
 from udemy_dl.config import Config
 
 

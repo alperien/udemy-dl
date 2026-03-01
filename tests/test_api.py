@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+
 from udemy_dl.api import UdemyAPI
 from udemy_dl.config import Config
 

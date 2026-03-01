@@ -57,6 +57,9 @@ select = [
 ]
 ignore = ["E501"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["udemy_dl"]
+
 [tool.ruff.lint.per-file-ignores]
 "src/udemy_dl/tui.py" = ["E501"]
 
