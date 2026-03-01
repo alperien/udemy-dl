@@ -27,6 +27,7 @@ issues and pull requests are very welcome, though responses may be slow.**
 - python 3.9+
 - [`ffmpeg`](https://ffmpeg.org/download.html) in your `PATH` (required)
 - `ffprobe` in your `PATH` (optional, enables video validation)
+- pipx for building
 
 ---
 
@@ -35,7 +36,7 @@ issues and pull requests are very welcome, though responses may be slow.**
 ```bash
 git clone https://github.com/alperien/udemy-dl.git
 cd udemy-dl
-pip install -e .
+pipx install -e .
 ```
 
 ---
