@@ -1,40 +1,44 @@
 # udemy-dl
 
-A lightweight terminal UI tool for locally backing up your owned Udemy courses.
+fast, byte-sized CLI tool for locally backing up your udemy courses
 
-> **For personal backup only.** Downloading courses may violate Udemy's Terms of Service. Only download courses you own and do not distribute downloaded content.
-
----
-
-## Features
-
-- Interactive curses TUI — no GUI required
-- Multi-course selection and batch download
-- Resume interrupted downloads (state persisted to disk)
-- Quality selection (2160p → 360p with automatic fallback)
-- Subtitle download (WebVTT → SRT conversion)
-- Supplementary materials download
-- Video integrity validation via `ffprobe`
-- Retry logic with exponential backoff on network errors
-- Cross-platform: Linux, macOS, Windows
+> **for personal backup only.** Downloading courses may violate Udemy's ToS. Only download courses you own.
 
 ---
 
-## Requirements
+## features
 
-- Python 3.9+
+- fast curses TUI
+- batch download
+- resume interrupted downloads (state persisted to disk)
+- quality selection (2160p → 360p)
+- subtitle download (WebVTT → SRT conversion)
+- supplementary materials download
+- video integrity validation via `ffprobe`
+- cross-platform: Linux, macOS, Windows, etc.
+
+---
+
+## iequirements
+
+- python 3.9+
 - [`ffmpeg`](https://ffmpeg.org/download.html) in your `PATH` (required)
-- `ffprobe` in your `PATH` (optional — enables video validation)
+- `ffprobe` in your `PATH` (optional, enables video validation)
 
 ---
 
-## Installation
+## installation
 
 ```bash
 pip install udemy-dl
 ```
+or
+```bash
+pipx install udemy-dl
+``` for global download
 
-Or from source:
+
+or from source:
 
 ```bash
 git clone https://github.com/yourname/udemy-dl.git
@@ -44,27 +48,25 @@ pip install -e .
 
 ---
 
-## Getting Your Credentials
+## getting your credentials
 
-You need two values from your browser cookies after logging in to Udemy:
+you need two values from your browser cookies after logging in to udemy:
 
-1. Open [udemy.com](https://www.udemy.com) and log in.11
-2. Open **Developer Tools** (`F12`) → **Application** tab → **Cookies** → `https://www.udemy.com`.
-3. Copy the values of:
+1. open [udemy.com](https://www.udemy.com) and log in.11
+2. open **developer tools** (`F12`) → **application** tab → **cookies** → `https://www.udemy.com`.
+3. copy:
    - `access_token` → this is your **token**
    - `client_id` → this is your **client_id**
 
 ---
 
-## Usage
+## usage
 
 ```bash
 udemy-dl
 ```
 
-On first run (or if no config is found), you will be prompted to enter your credentials via the Settings screen.
-
-### Keyboard shortcuts
+### shortcuts
 
 | Key | Action |
 |-----|--------|
@@ -77,48 +79,17 @@ On first run (or if no config is found), you will be prompted to enter your cred
 
 ---
 
-## Configuration
+## configuration
 
-Configuration is stored in `~/.config/udemy-dl/config.json` (permissions: `600`).
+config is in `~/.config/udemy-dl/config.json` (permissions: `600`).
 
-You can also configure via environment variables (takes precedence over the config file):
+## logs
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `UDEMY_TOKEN` | *(required)* | Your `access_token` cookie value |
-| `UDEMY_CLIENT_ID` | *(required)* | Your `client_id` cookie value |
-| `UDEMY_DOMAIN` | `https://www.udemy.com` | Udemy base URL |
-| `UDEMY_DL_PATH` | `~/Downloads/udemy-dl` | Download destination directory |
-| `UDEMY_QUALITY` | `1080` | Preferred video quality (`2160`, `1440`, `1080`, `720`, `480`, `360`) |
-| `UDEMY_DOWNLOAD_SUBTITLES` | `true` | Download subtitle files |
-| `UDEMY_DOWNLOAD_MATERIALS` | `true` | Download supplementary materials |
-| `UDEMY_DL_CONFIG_DIR` | `~/.config/udemy-dl` | Override config/log directory |
+logs are in `~/.config/udemy-dl/downloader.log`.
 
 ---
 
-## Output Structure
-
-```
-~/Downloads/udemy-dl/
-└── Course Title/
-    ├── 01 - Chapter Name/
-    │   ├── 001 - Lecture Title.mp4
-    │   ├── 001 - Lecture Title.en.srt
-    │   └── 00-materials/
-    │       └── slides.pdf
-    └── 02 - Another Chapter/
-        └── ...
-```
-
----
-
-## Logs
-
-Logs are written to `~/.config/udemy-dl/downloader.log`.
-
----
-
-## Development
+## development
 
 ```bash
 git clone https://github.com/yourname/udemy-dl.git
@@ -129,13 +100,13 @@ pip install -e ".[dev]"
 pre-commit install
 ```
 
-### Running tests
+### tests
 
 ```bash
 pytest
 ```
 
-### Linting
+### linting
 
 ```bash
 ruff check src/
@@ -145,6 +116,6 @@ mypy src/
 
 ---
 
-## License
+## license
 
 [MIT](LICENSE)
