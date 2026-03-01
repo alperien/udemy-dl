@@ -110,7 +110,7 @@ class VideoDownloader:
                         if not chunk:
                             break
                         q.put(chunk)
-                except Exception:
+                except (OSError, ValueError):
                     pass
                 finally:
                     q.put(None)
@@ -154,7 +154,7 @@ class VideoDownloader:
 
             try:
                 chunk = os.read(proc.stderr.fileno(), 1024)
-            except Exception:
+            except (OSError, ValueError):
                 break
 
             if not chunk:
@@ -223,9 +223,9 @@ class VideoDownloader:
                         srt_path.write_text(content, encoding="utf-8")
                         downloaded.append(srt_path)
                         logger.info(f"Downloaded subtitle: {srt_path.name}")
-                    except Exception as e:
+                    except (requests.RequestException, OSError) as e:
                         logger.warning(f"Failed to download subtitle {lang}: {e}")
-        except Exception as e:
+        except (requests.RequestException, OSError, ValueError) as e:
             logger.warning(f"Failed to fetch subtitles for lecture {lecture_id}: {e}")
         return downloaded
 
@@ -274,8 +274,8 @@ class VideoDownloader:
                         logger.warning(f"Material file empty: {filename}")
                         if mat_path.exists():
                             mat_path.unlink()
-                except Exception as e:
+                except (requests.RequestException, OSError) as e:
                     logger.warning(f"Failed to download material {filename}: {e}")
-        except Exception as e:
+        except (requests.RequestException, OSError, ValueError) as e:
             logger.warning(f"Failed to fetch materials for lecture {lecture_id}: {e}")
         return downloaded

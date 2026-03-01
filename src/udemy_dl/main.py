@@ -189,7 +189,7 @@ def _run_headless(args: argparse.Namespace) -> None:
                     if not url:
                         print(f"  [SKIP]  {clean_title[:50]} (no video)")
                         if lecture_id:
-                            app_state.current_course_state.completed_lectures.append(lecture_id)
+                            app_state.current_course_state.mark_completed(lecture_id)
                             app_state.save_state()
                         continue
 
@@ -200,7 +200,7 @@ def _run_headless(args: argparse.Namespace) -> None:
                     ):
                         print(f"  [CACHE] {clean_title[:50]} (file exists)")
                         if lecture_id:
-                            app_state.current_course_state.completed_lectures.append(lecture_id)
+                            app_state.current_course_state.mark_completed(lecture_id)
                             app_state.save_state()
                         continue
 
@@ -211,7 +211,7 @@ def _run_headless(args: argparse.Namespace) -> None:
                     if proc.returncode == 0 and out_path.exists() and validate_video(out_path):
                         print(f"  [DONE]  {clean_title[:50]}")
                         if lecture_id:
-                            app_state.current_course_state.completed_lectures.append(lecture_id)
+                            app_state.current_course_state.mark_completed(lecture_id)
                             app_state.save_state()
                     else:
                         print(f"  [FAIL]  {clean_title[:50]}", file=sys.stderr)

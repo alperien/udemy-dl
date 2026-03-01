@@ -197,16 +197,15 @@ class Application:
         if lecture_id and lecture_id in completed_lectures:
             self.add_log(f"[CACHE] Skipping completed lecture: {item['title'][:30]}...")
             ui_state["done_vids"] += 1
-            if lecture_id not in self.state.current_course_state.completed_lectures:
-                self.state.current_course_state.completed_lectures.append(lecture_id)
+            self.state.current_course_state.mark_completed(lecture_id)
             download_extras()
             return
 
         if not item["url"]:
             self.add_log(f"[INFO] No video for: {item['title'][:30]}...")
             ui_state["done_vids"] += 1
-            if lecture_id and lecture_id not in self.state.current_course_state.completed_lectures:
-                self.state.current_course_state.completed_lectures.append(lecture_id)
+            if lecture_id:
+                self.state.current_course_state.mark_completed(lecture_id)
                 self.state.save_state()
             download_extras()
             return
@@ -218,11 +217,8 @@ class Application:
                     f"[CACHE] Skipping existing file: {item['title'][:20]}... ({size_mb:.1f}MB)"
                 )
                 ui_state["done_vids"] += 1
-                if (
-                    lecture_id
-                    and lecture_id not in self.state.current_course_state.completed_lectures
-                ):
-                    self.state.current_course_state.completed_lectures.append(lecture_id)
+                if lecture_id:
+                    self.state.current_course_state.mark_completed(lecture_id)
                     self.state.save_state()
                 download_extras()
                 return
@@ -275,8 +271,8 @@ class Application:
         if out_path.exists() and is_valid:
             ui_state["done_vids"] += 1
             self.add_log(f"[DONE] Finished: {item['title'][:30]}")
-            if lecture_id and lecture_id not in self.state.current_course_state.completed_lectures:
-                self.state.current_course_state.completed_lectures.append(lecture_id)
+            if lecture_id:
+                self.state.current_course_state.mark_completed(lecture_id)
                 self.state.save_state()
 
             download_extras()

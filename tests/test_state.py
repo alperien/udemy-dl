@@ -98,3 +98,20 @@ class TestAppState:
         app_state = AppState()
         with patch("udemy_dl.state.STATE_FILE", str(tmp_path / "nonexistent.json")):
             app_state.clear_state()  # should not raise
+
+
+class TestMarkCompleted:
+    def test_adds_new_lecture_id(self):
+        state = DownloadState(completed_lectures=[1, 2])
+        state.mark_completed(3)
+        assert state.completed_lectures == [1, 2, 3]
+
+    def test_does_not_duplicate(self):
+        state = DownloadState(completed_lectures=[1, 2, 3])
+        state.mark_completed(2)
+        assert state.completed_lectures == [1, 2, 3]
+
+    def test_empty_list(self):
+        state = DownloadState()
+        state.mark_completed(42)
+        assert state.completed_lectures == [42]

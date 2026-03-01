@@ -22,7 +22,7 @@ issues and pull requests are very welcome, though responses may be slow.**
 
 ---
 
-## iequirements
+## requirements
 
 - python 3.9+
 - [`ffmpeg`](https://ffmpeg.org/download.html) in your `PATH` (required)
@@ -33,7 +33,7 @@ issues and pull requests are very welcome, though responses may be slow.**
 ## installation
 
 ```bash
-git clone https://github.com/yourname/udemy-dl.git
+git clone https://github.com/alperien/udemy-dl.git
 cd udemy-dl
 pip install -e .
 ```
@@ -44,7 +44,7 @@ pip install -e .
 
 you need two values from your browser cookies after logging in to udemy:
 
-1. open [udemy.com](https://www.udemy.com) and log in.11
+1. open [udemy.com](https://www.udemy.com) and log in.
 2. open **developer tools** (`F12`) → **application** tab → **cookies** → `https://www.udemy.com`.
 3. copy:
    - `access_token` → this is your **token**
@@ -56,6 +56,21 @@ you need two values from your browser cookies after logging in to udemy:
 
 ```bash
 udemy-dl
+```
+
+### headless mode
+
+run without the interactive TUI (useful for scripts/CI):
+
+```bash
+# download all owned courses
+UDEMY_TOKEN="..." UDEMY_CLIENT_ID="..." udemy-dl --headless
+
+# download a specific course
+udemy-dl --headless --course-id 12345
+
+# override quality and skip extras
+udemy-dl --headless --quality 720 --no-subtitles --no-materials
 ```
 
 ### shortcuts
@@ -84,7 +99,7 @@ logs are in `~/.config/udemy-dl/downloader.log`.
 ## development
 
 ```bash
-git clone https://github.com/yourname/udemy-dl.git
+git clone https://github.com/alperien/udemy-dl.git
 cd udemy-dl
 python -m venv venv
 source venv/bin/activate

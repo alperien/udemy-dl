@@ -22,6 +22,11 @@ class DownloadState:
     def to_dict(self) -> Dict:
         return asdict(self)
 
+    def mark_completed(self, lecture_id: int) -> None:
+        """Add a lecture ID to the completed list if not already present."""
+        if lecture_id not in self.completed_lectures:
+            self.completed_lectures.append(lecture_id)
+
     @classmethod
     def from_dict(cls, data: Dict) -> "DownloadState":
         valid_keys = set(cls.__dataclass_fields__)
