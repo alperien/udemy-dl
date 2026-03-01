@@ -5,7 +5,13 @@ import re
 import shutil
 from pathlib import Path
 
-LOG_FILE = "downloader.log"
+CONFIG_DIR = Path(os.getenv("UDEMY_DL_CONFIG_DIR", Path.home() / ".config" / "udemy-dl"))
+try:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
+
+LOG_FILE = str(CONFIG_DIR / "downloader.log")
 
 
 @functools.lru_cache(maxsize=1)

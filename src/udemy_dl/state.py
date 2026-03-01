@@ -5,11 +5,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from .config import _CONFIG_DIR
-from .utils import get_logger
+from .utils import CONFIG_DIR, get_logger
 
 logger = get_logger(__name__)
-STATE_FILE = str(_CONFIG_DIR / "download_state.json")
+STATE_FILE = str(CONFIG_DIR / "download_state.json")
 
 
 @dataclass

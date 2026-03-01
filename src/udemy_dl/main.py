@@ -21,7 +21,9 @@ def _main(stdscr):
         if logger:
             logger.exception(f"Unhandled exception: {e}")
         print(f"\nFatal error: {e}")
-        print("Check downloader.log for details")
+        from .utils import LOG_FILE
+
+        print(f"Check {LOG_FILE} for details")
         sys.exit(1)
 
 

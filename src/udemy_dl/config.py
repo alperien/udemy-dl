@@ -4,16 +4,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Tuple
 
-from .utils import get_logger, set_secure_permissions
+from .utils import CONFIG_DIR, get_logger, set_secure_permissions
 
 logger = get_logger(__name__)
 
-_CONFIG_DIR = Path(os.getenv("UDEMY_DL_CONFIG_DIR", Path.home() / ".config" / "udemy-dl"))
-try:
-    _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-except OSError as e:
-    logger.warning(f"Failed to create config directory {_CONFIG_DIR}: {e}")
-CONFIG_FILE = str(_CONFIG_DIR / "config.json")
+CONFIG_FILE = str(CONFIG_DIR / "config.json")
 
 QUALITY_OPTIONS = ["2160", "1440", "1080", "720", "480", "360"]
 
@@ -23,7 +18,7 @@ class Config:
     domain: str = "https://www.udemy.com"
     token: str = ""
     client_id: str = ""
-    dl_path: str = "downloads"
+    dl_path: str = str(Path.home() / "Downloads" / "udemy-dl")
     quality: str = "1080"
     download_subtitles: bool = True
     download_materials: bool = True
@@ -48,7 +43,7 @@ def load_config() -> Config:
         domain=os.getenv("UDEMY_DOMAIN", "https://www.udemy.com"),
         token=os.getenv("UDEMY_TOKEN", ""),
         client_id=os.getenv("UDEMY_CLIENT_ID", ""),
-        dl_path=os.getenv("UDEMY_DL_PATH", "downloads"),
+        dl_path=os.getenv("UDEMY_DL_PATH", str(Path.home() / "Downloads" / "udemy-dl")),
         quality=os.getenv("UDEMY_QUALITY", "1080"),
         download_subtitles=os.getenv("UDEMY_DOWNLOAD_SUBTITLES", "true").lower() == "true",
         download_materials=os.getenv("UDEMY_DOWNLOAD_MATERIALS", "true").lower() == "true",
@@ -64,7 +59,11 @@ def load_config() -> Config:
             if not os.getenv("UDEMY_CLIENT_ID"):
                 config.client_id = str(saved.get("client_id") or config.client_id).strip()
             if not os.getenv("UDEMY_DL_PATH"):
-                config.dl_path = str(saved.get("dl_path") or config.dl_path).strip()
+                saved_dl_path = str(saved.get("dl_path") or config.dl_path).strip()
+                if saved_dl_path == "downloads":
+                    config.dl_path = str(Path.home() / "Downloads" / "udemy-dl")
+                else:
+                    config.dl_path = saved_dl_path
             if not os.getenv("UDEMY_QUALITY"):
                 config.quality = str(saved.get("quality") or config.quality).strip()
             if not os.getenv("UDEMY_DOWNLOAD_SUBTITLES"):
