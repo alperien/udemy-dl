@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import json
+import time
 import urllib.parse
 from typing import Dict, List
 
@@ -10,6 +13,9 @@ from .utils import get_logger
 
 logger = get_logger(__name__)
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+MAX_RETRIES = 3
+RETRY_BACKOFF = 2  # seconds; doubles each retry
 
 
 class UdemyAPI:
@@ -32,13 +38,33 @@ class UdemyAPI:
         )
         return session
 
+    def _request_with_retry(self, url: str, timeout: int = 30) -> requests.Response:
+        """Perform a GET request with exponential backoff retry."""
+        last_exc: Exception | None = None
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                response = self.session.get(url, timeout=timeout)
+                response.raise_for_status()
+                return response
+            except (Timeout, RequestException) as e:
+                last_exc = e
+                if attempt < MAX_RETRIES:
+                    wait = RETRY_BACKOFF * (2 ** (attempt - 1))
+                    logger.warning(
+                        f"Request failed (attempt {attempt}/{MAX_RETRIES}), "
+                        f"retrying in {wait}s: {e}"
+                    )
+                    time.sleep(wait)
+                else:
+                    logger.error(f"Request failed after {MAX_RETRIES} attempts: {e}")
+        raise last_exc  # type: ignore[misc]
+
     def fetch_owned_courses(self) -> List[Dict]:
-        url = f"{self.config.domain}/api-2.0/users/me/subscribed-courses/?page_size=100"
-        courses = []
+        url: str | None = f"{self.config.domain}/api-2.0/users/me/subscribed-courses/?page_size=100"
+        courses: List[Dict] = []
         while url:
             try:
-                response = self.session.get(url, timeout=30)
-                response.raise_for_status()
+                response = self._request_with_retry(url)
                 data = response.json()
                 for item in data.get("results", []):
                     course_id = item.get("id")
@@ -49,17 +75,21 @@ class UdemyAPI:
                 if url:
                     url = urllib.parse.urljoin(self.config.domain, url)
             except (Timeout, HTTPError, RequestException, json.JSONDecodeError) as e:
-                logger.error(f"Error fetching courses: {e}")
+                logger.error(f"Error fetching courses (page): {e}")
                 break
         return courses
 
     def get_course_curriculum(self, course_id: int) -> List[Dict]:
-        url = f"{self.config.domain}/api-2.0/courses/{course_id}/subscriber-curriculum-items/?page=1&page_size=100&fields[lecture]=title,asset,id&fields[chapter]=title&fields[asset]=stream_urls,hls_url"
-        items = []
+        url: str | None = (
+            f"{self.config.domain}/api-2.0/courses/{course_id}/"
+            f"subscriber-curriculum-items/?page=1&page_size=100"
+            f"&fields[lecture]=title,asset,id&fields[chapter]=title"
+            f"&fields[asset]=stream_urls,hls_url"
+        )
+        items: List[Dict] = []
         while url:
             try:
-                response = self.session.get(url, timeout=30)
-                response.raise_for_status()
+                response = self._request_with_retry(url)
                 data = response.json()
                 items.extend(data.get("results", []))
                 url = data.get("next")

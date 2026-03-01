@@ -1,4 +1,3 @@
-import os
 import re
 import subprocess
 import sys
@@ -180,35 +179,24 @@ class VideoDownloader:
             f"Referer: {self.config.domain}/\r\n"
         )
 
-        env = {**os.environ, "_UDEMY_HEADERS": headers_content}
-
-        if sys.platform == "win32":
-            ps_cmd = (
-                f"& ffmpeg -y -headers $env:_UDEMY_HEADERS "
-                f'-i "{url}" -c copy -bsf:a aac_adtstoasc "{output_path}"'
-            )
-            cmd = ["powershell", "-NoProfile", "-Command", ps_cmd]
-            return subprocess.Popen(
-                cmd,
-                stderr=subprocess.PIPE,
-                stdout=subprocess.DEVNULL,
-                env=env,
-            )
-
         cmd = [
-            "sh",
-            "-c",
-            'exec ffmpeg -y -headers "$_UDEMY_HEADERS" '
-            '-i "$1" -c copy -bsf:a aac_adtstoasc "$2"',
-            "_",
+            "ffmpeg",
+            "-y",
+            "-headers",
+            headers_content,
+            "-i",
             url,
+            "-c",
+            "copy",
+            "-bsf:a",
+            "aac_adtstoasc",
             str(output_path),
         ]
+
         return subprocess.Popen(
             cmd,
             stderr=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
-            env=env,
         )
 
     def download_subtitles(self, course_id: int, lecture_id: int, output_path: Path) -> List[Path]:

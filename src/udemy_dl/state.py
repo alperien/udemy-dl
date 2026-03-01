@@ -30,7 +30,7 @@ class DownloadState:
 
 
 class AppState:
-    def __init__(self):
+    def __init__(self) -> None:
         self.interrupted = False
         self.current_course_state: Optional[DownloadState] = None
 
