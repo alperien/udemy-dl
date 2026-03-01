@@ -4,6 +4,9 @@ fast, byte-sized CLI tool for locally backing up your udemy courses
 
 > **for personal backup only.** Downloading courses may violate Udemy's ToS. Only download courses you own.
 
+>**this project is provided as-is. It works, but it is not actively maintained and is far from perfect.
+issues and pull requests are very welcome, though responses may be slow.
+
 ---
 
 ## features
