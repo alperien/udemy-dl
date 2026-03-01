@@ -32,14 +32,14 @@ fast, byte-sized CLI tool for locally backing up your udemy courses
 ```bash
 pip install udemy-dl
 ```
-or for global installation
+for global install
 
 ```bash
 pipx install udemy-dl
 ```
 
 
-or from source:
+from source:
 
 ```bash
 git clone https://github.com/yourname/udemy-dl.git
