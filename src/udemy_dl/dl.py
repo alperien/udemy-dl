@@ -96,21 +96,60 @@ class VideoDownloader:
         return ""
 
     def read_ffmpeg_output(self, proc: subprocess.Popen) -> Generator[str, None, None]:
-        buffer = ""
-        while True:
-            if sys.platform != "win32":
-                import select
+        if sys.platform == "win32":
+            import queue
+            import threading
 
-                if proc.stderr is None:
-                    break
-                ready, _, _ = select.select([proc.stderr], [], [], 0.1)
-                if not ready:
+            q = queue.Queue()
+
+            def reader():
+                try:
+                    while True:
+                        if proc.stderr is None:
+                            break
+                        chunk = proc.stderr.read1(1024)
+                        if not chunk:
+                            break
+                        q.put(chunk)
+                except Exception:
+                    pass
+                finally:
+                    q.put(None)
+
+            t = threading.Thread(target=reader, daemon=True)
+            t.start()
+
+            buffer = ""
+            while True:
+                try:
+                    chunk = q.get(timeout=0.1)
+                    if chunk is None:
+                        break
+                    buffer += chunk.decode("utf-8", "ignore")
+                    parts = re.split(r"[\r\n]+", buffer)
+                    buffer = parts.pop()
+                    for line in parts:
+                        if line.strip():
+                            yield line.strip().lower()
+                except queue.Empty:
                     if proc.poll() is not None:
                         break
-                    continue
+
+            if buffer.strip():
+                yield buffer.strip().lower()
+            return
+
+        buffer = ""
+        while True:
+            import select
 
             if proc.stderr is None:
                 break
+            ready, _, _ = select.select([proc.stderr], [], [], 0.1)
+            if not ready:
+                if proc.poll() is not None:
+                    break
+                continue
 
             import os
 
@@ -144,19 +183,11 @@ class VideoDownloader:
         env = {**os.environ, "_UDEMY_HEADERS": headers_content}
 
         if sys.platform == "win32":
-            cmd = [
-                "ffmpeg",
-                "-y",
-                "-headers",
-                headers_content,
-                "-i",
-                url,
-                "-c",
-                "copy",
-                "-bsf:a",
-                "aac_adtstoasc",
-                str(output_path),
-            ]
+            ps_cmd = (
+                f"& ffmpeg -y -headers $env:_UDEMY_HEADERS "
+                f'-i "{url}" -c copy -bsf:a aac_adtstoasc "{output_path}"'
+            )
+            cmd = ["powershell", "-NoProfile", "-Command", ps_cmd]
             return subprocess.Popen(
                 cmd,
                 stderr=subprocess.PIPE,

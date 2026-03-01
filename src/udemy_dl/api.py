@@ -48,7 +48,7 @@ class UdemyAPI:
                 url = data.get("next")
                 if url:
                     url = urllib.parse.urljoin(self.config.domain, url)
-            except (Timeout, HTTPError, RequestException) as e:
+            except (Timeout, HTTPError, RequestException, json.JSONDecodeError) as e:
                 logger.error(f"Error fetching courses: {e}")
                 break
         return courses
@@ -67,5 +67,5 @@ class UdemyAPI:
                     url = urllib.parse.urljoin(self.config.domain, url)
             except (Timeout, HTTPError, RequestException, json.JSONDecodeError) as e:
                 logger.error(f"Error fetching curriculum: {e}")
-                break
+                raise RuntimeError(f"Failed to fetch complete curriculum: {e}") from e
         return items

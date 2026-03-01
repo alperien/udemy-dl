@@ -299,7 +299,15 @@ class Application:
             "vid_current_secs": 0,
         }
 
-        download_queue = self._build_download_queue(course, ui_state)
+        try:
+            download_queue = self._build_download_queue(course, ui_state)
+        except RuntimeError as e:
+            self.add_log(f"[ERROR] {e}")
+            self.tui.render_dashboard(ui_state, index, total, self.log_buffer)
+            import time
+
+            time.sleep(2)
+            return
 
         saved_state = self.state.load_state()
         completed_lectures = set()
