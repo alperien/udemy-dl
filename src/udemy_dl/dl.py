@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 
 def _webvtt_to_srt(content: str) -> str:
-    if not content.startswith("WEBVTT"):
+    if not content.strip().startswith("WEBVTT"):
         return content
 
     lines = content.split("\n")
@@ -185,7 +185,7 @@ class VideoDownloader:
                         sub_response = self.session.get(srt_url, timeout=30)
                         sub_response.raise_for_status()
                         content = sub_response.text
-                        if content.startswith("WEBVTT"):
+                        if content.strip().startswith("WEBVTT"):
                             content = _webvtt_to_srt(content)
                         srt_path.write_text(content, encoding="utf-8")
                         downloaded.append(srt_path)
@@ -212,12 +212,8 @@ class VideoDownloader:
                     continue
                 try:
                     mat_response = self.session.get(file_url, timeout=30, stream=True)
-                    retry_count = 0
-                    max_retries = 2
-                    while mat_response.status_code in [401, 403] and retry_count < max_retries:
-                        retry_count += 1
-                        if retry_count == 1:
-                            mat_response = requests.get(file_url, timeout=30, stream=True)
+                    if mat_response.status_code in [401, 403]:
+                        mat_response = requests.get(file_url, timeout=30, stream=True)
                     mat_response.raise_for_status()
                     mat_path = materials_dir / filename
                     with open(mat_path, "wb") as f:

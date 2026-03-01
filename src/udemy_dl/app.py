@@ -11,6 +11,7 @@ from .dl import VideoDownloader
 from .state import AppState, DownloadState
 from .tui import COLOR_DIM, COLOR_SUCCESS, TUI
 from .utils import (
+    _ffprobe_available,
     get_logger,
     sanitize_filename,
     time_string_to_seconds,
@@ -144,12 +145,12 @@ class Application:
                 chapter_index += 1
                 lecture_index = 0
                 current_chapter_dir = base_dir / f"{chapter_index:02d} - {clean_title}"
-            elif item_type == "lecture" and "asset" in item:
+            elif item_type == "lecture":
                 lecture_index += 1
                 lecture_id = item.get("id")
                 asset = item.get("asset")
-                url = self.downloader.get_quality_video_url(asset)
-                if url and current_chapter_dir:
+                url = self.downloader.get_quality_video_url(asset) if asset else ""
+                if current_chapter_dir:
                     file_path = current_chapter_dir / f"{lecture_index:03d} - {clean_title}.mp4"
                     download_queue.append(
                         {
@@ -179,10 +180,32 @@ class Application:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         lecture_id = item.get("id")
 
+        def download_extras():
+            if self.config.download_subtitles and lecture_id:
+                subs = self.downloader.download_subtitles(course["id"], lecture_id, out_path)
+                if subs:
+                    self.add_log(f"[SUBS] Downloaded {len(subs)} subtitle track(s)")
+
+            if self.config.download_materials and lecture_id:
+                mats = self.downloader.download_materials(course["id"], lecture_id, out_path)
+                if mats:
+                    self.add_log(f"[MATS] Downloaded {len(mats)} material file(s)")
+
         if lecture_id and lecture_id in completed_lectures:
             self.add_log(f"[CACHE] Skipping completed lecture: {item['title'][:30]}...")
             ui_state["done_vids"] += 1
-            self.state.current_course_state.completed_lectures.append(lecture_id)
+            if lecture_id not in self.state.current_course_state.completed_lectures:
+                self.state.current_course_state.completed_lectures.append(lecture_id)
+            download_extras()
+            return
+
+        if not item["url"]:
+            self.add_log(f"[INFO] No video for: {item['title'][:30]}...")
+            ui_state["done_vids"] += 1
+            if lecture_id and lecture_id not in self.state.current_course_state.completed_lectures:
+                self.state.current_course_state.completed_lectures.append(lecture_id)
+                self.state.save_state()
+            download_extras()
             return
 
         if out_path.exists() and out_path.stat().st_size > 1024:
@@ -192,9 +215,13 @@ class Application:
                     f"[CACHE] Skipping existing file: {item['title'][:20]}... ({size_mb:.1f}MB)"
                 )
                 ui_state["done_vids"] += 1
-                if lecture_id:
+                if (
+                    lecture_id
+                    and lecture_id not in self.state.current_course_state.completed_lectures
+                ):
                     self.state.current_course_state.completed_lectures.append(lecture_id)
                     self.state.save_state()
+                download_extras()
                 return
             else:
                 self.add_log(f"[WARN] Invalid file detected, re-downloading: {item['title'][:20]}")
@@ -207,9 +234,7 @@ class Application:
         ui_state["vid_current_secs"] = 0
 
         DURATION_REGEX = re.compile(r"duration:\s*(?P<time>\d{2}:\d{2}:\d{2}(?:\.\d+)?)")
-        STATS_REGEX = re.compile(
-            r"size=\s*(?P<size>\d+[a-z]*)\s+time=(?P<time>\d{2}:\d{2}:\d{2}(?:\.\d+)?).*?speed=\s*(?P<speed>[\d\.]+x)"
-        )
+        STATS_REGEX = re.compile(r"time=(?P<time>\d{2}:\d{2}:\d{2}(?:\.\d+)?)")
 
         try:
             for line in self.downloader.read_ffmpeg_output(proc):
@@ -236,22 +261,20 @@ class Application:
         if self.download_interrupted:
             return
 
-        if out_path.exists() and validate_video(out_path):
+        is_valid = validate_video(out_path)
+        if proc.returncode != 0:
+            self.add_log(f"[WARN] FFmpeg exited with code {proc.returncode}")
+            if not _ffprobe_available():
+                is_valid = False
+
+        if out_path.exists() and is_valid:
             ui_state["done_vids"] += 1
             self.add_log(f"[DONE] Finished: {item['title'][:30]}")
-            if lecture_id:
+            if lecture_id and lecture_id not in self.state.current_course_state.completed_lectures:
                 self.state.current_course_state.completed_lectures.append(lecture_id)
                 self.state.save_state()
 
-            if self.config.download_subtitles and lecture_id:
-                subs = self.downloader.download_subtitles(course["id"], lecture_id, out_path)
-                if subs:
-                    self.add_log(f"[SUBS] Downloaded {len(subs)} subtitle track(s)")
-
-            if self.config.download_materials and lecture_id:
-                mats = self.downloader.download_materials(course["id"], lecture_id, out_path)
-                if mats:
-                    self.add_log(f"[MATS] Downloaded {len(mats)} material file(s)")
+            download_extras()
         else:
             self.add_log(f"[ERROR] Download failed or invalid file: {item['title'][:30]}")
             if out_path.exists():

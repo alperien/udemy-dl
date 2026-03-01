@@ -58,15 +58,15 @@ def load_config() -> Config:
         try:
             saved = json.loads(config_path.read_text(encoding="utf-8"))
             if not os.getenv("UDEMY_DOMAIN"):
-                config.domain = saved.get("domain", config.domain).strip()
+                config.domain = str(saved.get("domain") or config.domain).strip()
             if not os.getenv("UDEMY_TOKEN"):
-                config.token = saved.get("token", config.token).strip()
+                config.token = str(saved.get("token") or config.token).strip()
             if not os.getenv("UDEMY_CLIENT_ID"):
-                config.client_id = saved.get("client_id", config.client_id).strip()
+                config.client_id = str(saved.get("client_id") or config.client_id).strip()
             if not os.getenv("UDEMY_DL_PATH"):
-                config.dl_path = saved.get("dl_path", config.dl_path).strip()
+                config.dl_path = str(saved.get("dl_path") or config.dl_path).strip()
             if not os.getenv("UDEMY_QUALITY"):
-                config.quality = saved.get("quality", config.quality).strip()
+                config.quality = str(saved.get("quality") or config.quality).strip()
             if not os.getenv("UDEMY_DOWNLOAD_SUBTITLES"):
                 config.download_subtitles = saved.get(
                     "download_subtitles", config.download_subtitles
