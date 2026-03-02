@@ -27,7 +27,7 @@ issues and pull requests are very welcome, though responses may be slow.**
 - python 3.9+
 - [`ffmpeg`](https://ffmpeg.org/download.html) in your `PATH` (required)
 - `ffprobe` in your `PATH` (optional, enables video validation)
-- pipx for building
+- pipx for global install (optional)
 
 ### windows
 
