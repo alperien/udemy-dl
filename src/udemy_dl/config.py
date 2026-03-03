@@ -67,13 +67,11 @@ def load_config() -> Config:
             if not os.getenv("UDEMY_QUALITY"):
                 config.quality = str(saved.get("quality") or config.quality).strip()
             if not os.getenv("UDEMY_DOWNLOAD_SUBTITLES"):
-                config.download_subtitles = saved.get(
-                    "download_subtitles", config.download_subtitles
-                )
+                val = saved.get("download_subtitles", config.download_subtitles)
+                config.download_subtitles = val if isinstance(val, bool) else str(val).lower() in ("true", "1", "yes")
             if not os.getenv("UDEMY_DOWNLOAD_MATERIALS"):
-                config.download_materials = saved.get(
-                    "download_materials", config.download_materials
-                )
+                val = saved.get("download_materials", config.download_materials)
+                config.download_materials = val if isinstance(val, bool) else str(val).lower() in ("true", "1", "yes")
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Failed to load config file: {e}")
     return config

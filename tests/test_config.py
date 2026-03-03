@@ -79,6 +79,13 @@ class TestConfigSaveLoad:
             assert data["quality"] == "720"
             assert data["download_subtitles"] is False
 
+            loaded = load_config()
+            assert loaded.token == "mytoken12345"
+            assert loaded.client_id == "myclientid"
+            assert loaded.quality == "720"
+            assert loaded.download_subtitles is False
+            assert loaded.download_materials is True
+
     def test_load_config_from_env(self, tmp_path):
         env_vars = {
             "UDEMY_TOKEN": "envtoken12345",

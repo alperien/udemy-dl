@@ -193,6 +193,10 @@ def _run_headless(args: argparse.Namespace) -> None:
 
                     if lecture_id and lecture_id in completed_lectures:
                         print(f"  [CACHE] {clean_title[:50]}")
+                        if config.download_subtitles:
+                            downloader.download_subtitles(course["id"], lecture_id, out_path)
+                        if config.download_materials:
+                            downloader.download_materials(course["id"], lecture_id, out_path)
                         continue
 
                     if not url:
@@ -200,6 +204,10 @@ def _run_headless(args: argparse.Namespace) -> None:
                         if lecture_id:
                             app_state.current_course_state.mark_completed(lecture_id)
                             app_state.save_state()
+                            if config.download_subtitles:
+                                downloader.download_subtitles(course["id"], lecture_id, out_path)
+                            if config.download_materials:
+                                downloader.download_materials(course["id"], lecture_id, out_path)
                         continue
 
                     if (

@@ -6,7 +6,7 @@ import urllib.parse
 from typing import Dict, List
 
 import requests
-from requests.exceptions import HTTPError, RequestException, Timeout
+from requests.exceptions import RequestException
 
 from .config import Config
 from .utils import get_logger
@@ -46,7 +46,7 @@ class UdemyAPI:
                 response = self.session.get(url, timeout=timeout)
                 response.raise_for_status()
                 return response
-            except (Timeout, RequestException) as e:
+            except RequestException as e:
                 last_exc = e
                 if attempt < MAX_RETRIES:
                     wait = RETRY_BACKOFF * (2 ** (attempt - 1))
@@ -75,7 +75,7 @@ class UdemyAPI:
                 if url:
                     url = urllib.parse.urljoin(self.config.domain, url)
                     time.sleep(PAGINATION_DELAY)
-            except (Timeout, HTTPError, RequestException, json.JSONDecodeError) as e:
+            except (RequestException, json.JSONDecodeError) as e:
                 logger.error(f"Error fetching courses (page): {e}")
                 break
         return courses
@@ -97,7 +97,7 @@ class UdemyAPI:
                 if url:
                     url = urllib.parse.urljoin(self.config.domain, url)
                     time.sleep(PAGINATION_DELAY)
-            except (Timeout, HTTPError, RequestException, json.JSONDecodeError) as e:
+            except (RequestException, json.JSONDecodeError) as e:
                 logger.error(f"Error fetching curriculum: {e}")
                 raise RuntimeError(f"Failed to fetch complete curriculum: {e}") from e
         return items

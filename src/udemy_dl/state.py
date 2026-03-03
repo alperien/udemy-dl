@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -64,15 +65,21 @@ class AppState:
             return
         state_path = Path(STATE_FILE)
         self.current_course_state.last_updated = datetime.now().isoformat()
+        tmp_path = None
         try:
-            state_path.write_text(
-                json.dumps(self.current_course_state.to_dict(), indent=4),
-                encoding="utf-8",
-            )
+            fd, tmp_path = tempfile.mkstemp(dir=state_path.parent, suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(self.current_course_state.to_dict(), f, indent=4)
+            os.replace(tmp_path, str(state_path))
             os.chmod(state_path, 0o600)
             logger.debug("Download state saved")
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Failed to save download state: {e}")
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
     def clear_state(self) -> None:
         state_path = Path(STATE_FILE)

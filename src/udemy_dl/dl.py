@@ -148,10 +148,10 @@ class VideoDownloader:
                 yield buffer.strip().lower()
             return
 
+        import select
+
         buffer = ""
         while True:
-            import select
-
             if proc.stderr is None:
                 break
             ready, _, _ = select.select([proc.stderr], [], [], 0.1)
@@ -210,7 +210,7 @@ class VideoDownloader:
             logger.error(f"FFmpeg process timed out after {timeout}s, killing")
             proc.kill()
             proc.wait(timeout=10)
-        return proc.returncode or -1
+        return proc.returncode if proc.returncode is not None else -1
 
     def download_subtitles(self, course_id: int, lecture_id: int, output_path: Path) -> List[Path]:
         downloaded: List[Path] = []
@@ -223,7 +223,7 @@ class VideoDownloader:
             data = response.json()
             subtitles_dir = output_path.parent
             for caption in data.get("captions", []):
-                lang = caption.get("language", "en")
+                lang = sanitize_filename(caption.get("language", "en"))
                 srt_url = caption.get("url")
                 if srt_url:
                     srt_path = subtitles_dir / f"{output_path.stem}.{lang}.srt"
@@ -267,6 +267,7 @@ class VideoDownloader:
                 try:
                     mat_response = self.session.get(file_url, timeout=30, stream=True)
                     if mat_response.status_code in [401, 403]:
+                        mat_response.close()
                         mat_response = self.session.get(
                             file_url, timeout=30, stream=True, headers={"Authorization": None}
                         )

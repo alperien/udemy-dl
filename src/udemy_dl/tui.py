@@ -42,6 +42,8 @@ class TUI:
     ):
         try:
             if max_width is not None:
+                if max_width <= 0:
+                    return
                 if len(text) > max_width:
                     text = text[: max_width - 1] + "~"
                 else:
@@ -272,11 +274,17 @@ class TUI:
                         new_val = ""
                     elif key in ["download_subtitles", "download_materials"]:
                         new_val = new_val.lower() in ("true", "1", "yes", "y")
+                    old_val = getattr(config, key)
                     setattr(config, key, new_val)
-                    from .config import save_config
+                    valid, err = config.validate()
+                    if not valid:
+                        setattr(config, key, old_val)
+                        logger.warning(f"Config validation failed for {key}: {err}")
+                    else:
+                        from .config import save_config
 
-                    save_config(config)
-                    logger.info(f"Updated config: {key}")
+                        save_config(config)
+                        logger.info(f"Updated config: {key}")
 
     def select_courses(self, courses: List[Dict]) -> List[Dict]:
         selected: Set[int] = set()

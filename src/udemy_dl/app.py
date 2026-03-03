@@ -2,6 +2,7 @@ import curses
 import re
 import shutil
 import signal
+from collections import deque
 from pathlib import Path
 from typing import Dict, List
 
@@ -29,7 +30,7 @@ class Application:
         self.state = AppState()
         self.api = None
         self.downloader = None
-        self.log_buffer: List[str] = []
+        self.log_buffer: deque = deque(maxlen=100)
         self.download_interrupted = False
 
     def add_log(self, msg: str):
@@ -38,8 +39,6 @@ class Application:
         ts = datetime.now().strftime("%H:%M:%S")
         entry = f"[{ts}] {msg}"
         self.log_buffer.append(entry)
-        if len(self.log_buffer) > 100:
-            self.log_buffer.pop(0)
         logger.info(msg)
 
     def _setup_signal_handlers(self):
@@ -175,7 +174,7 @@ class Application:
         completed_lectures: set,
     ):
         ui_state["current_file"] = item["title"]
-        self.tui.render_dashboard(ui_state, index, total, self.log_buffer)
+        self.tui.render_dashboard(ui_state, index, total, list(self.log_buffer))
 
         out_path = item["path"]
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -253,7 +252,7 @@ class Application:
                         time_string_to_seconds(time_val),
                         ui_state["vid_duration_secs"],
                     )
-                self.tui.render_dashboard(ui_state, index, total, self.log_buffer)
+                self.tui.render_dashboard(ui_state, index, total, list(self.log_buffer))
         except Exception as e:
             logger.error(f"Error reading ffmpeg output: {e}")
 
@@ -299,7 +298,7 @@ class Application:
             download_queue = self._build_download_queue(course, ui_state)
         except RuntimeError as e:
             self.add_log(f"[ERROR] {e}")
-            self.tui.render_dashboard(ui_state, index, total, self.log_buffer)
+            self.tui.render_dashboard(ui_state, index, total, list(self.log_buffer))
             import time
 
             time.sleep(2)

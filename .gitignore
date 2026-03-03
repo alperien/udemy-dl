@@ -15,7 +15,6 @@ download_state.json
 *.orig
 *.rej
 *.patch
-codebase_context.md
 .vscode/
 .idea/
 *.swp
