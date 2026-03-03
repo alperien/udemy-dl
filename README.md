@@ -11,11 +11,10 @@ fast, byte-sized CLI tool for locally backing up your udemy courses
 
 - fast curses TUI
 - batch download
-- resume interrupted downloads (state persisted to disk)
-- quality selection (2160p → 360p)
-- subtitle download (WebVTT → SRT conversion)
+- resume interrupted downloads
+- quality selection
+- subtitle download
 - supplementary materials download
-- video integrity validation via `ffprobe`
 - cross-platform: Linux, macOS, Windows, etc.
 
 ---
@@ -29,7 +28,7 @@ fast, byte-sized CLI tool for locally backing up your udemy courses
 
 ### windows
 
-on Windows you also need:
+on windows you also need:
 
 - **`python 3.9 - 3.13`** – `windows-curses` only ships pre-built wheels for these versions. if you got newer python and `pip install` fails with *"could not find a version that satisfies the requirement windows-curses"*, either downgrade python or use `--headless` mode (which does not need curses).
 - **`windows-curses>=2.3.2`** – installed automatically by `pip install -e .`. if you install deps manually, run:
