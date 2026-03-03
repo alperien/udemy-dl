@@ -1,3 +1,5 @@
+"""Tests for the Udemy API client."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -5,6 +7,8 @@ import requests
 
 from udemy_dl.api import UdemyAPI
 from udemy_dl.config import Config
+from udemy_dl.exceptions import APIError, CurriculumFetchError
+from udemy_dl.models import Course
 
 
 def _make_api() -> UdemyAPI:
@@ -27,7 +31,7 @@ def _mock_response(json_data: dict, status_code: int = 200) -> MagicMock:
 
 
 class TestFetchOwnedCourses:
-    def test_returns_courses(self):
+    def test_returns_typed_courses(self):
         api = _make_api()
         page1 = {
             "results": [
@@ -39,7 +43,9 @@ class TestFetchOwnedCourses:
         with patch.object(api.session, "get", return_value=_mock_response(page1)):
             courses = api.fetch_owned_courses()
         assert len(courses) == 2
-        assert courses[0] == {"id": 1, "title": "Course A"}
+        assert isinstance(courses[0], Course)
+        assert courses[0].id == 1
+        assert courses[0].title == "Course A"
 
     def test_paginates_through_all_pages(self):
         api = _make_api()
@@ -70,7 +76,7 @@ class TestFetchOwnedCourses:
         with patch.object(api.session, "get", return_value=_mock_response(page)):
             courses = api.fetch_owned_courses()
         assert len(courses) == 1
-        assert courses[0]["id"] == 2
+        assert courses[0].id == 2
 
     def test_returns_partial_on_error(self):
         api = _make_api()
@@ -105,7 +111,7 @@ class TestRetryLogic:
         assert mock_get.call_count == 3
         assert mock_sleep.call_count == 2
 
-    def test_raises_after_max_retries(self):
+    def test_raises_api_error_after_max_retries(self):
         api = _make_api()
         with patch.object(
             api.session,
@@ -113,7 +119,7 @@ class TestRetryLogic:
             side_effect=requests.exceptions.Timeout("always timeout"),
         ):
             with patch("udemy_dl.api.time.sleep"):
-                with pytest.raises(requests.exceptions.Timeout):
+                with pytest.raises(APIError):
                     api._request_with_retry("https://example.com")
 
 
@@ -131,7 +137,7 @@ class TestGetCourseCurriculum:
             items = api.get_course_curriculum(12345)
         assert len(items) == 2
 
-    def test_raises_runtime_error_on_failure(self):
+    def test_raises_curriculum_fetch_error_on_failure(self):
         api = _make_api()
         with patch.object(
             api.session,
@@ -139,5 +145,5 @@ class TestGetCourseCurriculum:
             side_effect=requests.exceptions.Timeout("timeout"),
         ):
             with patch("udemy_dl.api.time.sleep"):
-                with pytest.raises(RuntimeError, match="Failed to fetch complete curriculum"):
+                with pytest.raises(CurriculumFetchError, match="Failed to fetch complete curriculum"):
                     api.get_course_curriculum(12345)

@@ -1,11 +1,21 @@
+"""Curses-based terminal user interface for udemy-dl.
+
+Provides menus, settings editing, course selection, and a real-time
+download dashboard with progress bars and a scrolling log.
+"""
+
+from __future__ import annotations
+
 import curses
 import textwrap
-from typing import Any, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set
 
-from .config import Config
+from .config import Config, save_config
+from .models import Course, DownloadProgress
 from .utils import get_logger
 
 logger = get_logger(__name__)
+
 
 COLOR_DEFAULT = 1
 COLOR_ACCENT = 2
@@ -16,12 +26,19 @@ COLOR_DIM = 6
 
 
 class TUI:
-    def __init__(self, stdscr):
+    """Curses-based terminal UI.
+
+    Args:
+        stdscr: The root curses window provided by :func:`curses.wrapper`.
+    """
+
+    def __init__(self, stdscr: "curses.window") -> None:
         self.stdscr = stdscr
         self._init_colors()
         curses.curs_set(0)
 
-    def _init_colors(self):
+    def _init_colors(self) -> None:
+        """Register the colour pairs used across the UI."""
         curses.start_color()
         curses.use_default_colors()
         curses.init_pair(COLOR_DEFAULT, -1, -1)
@@ -39,7 +56,12 @@ class TUI:
         color: int = COLOR_DEFAULT,
         attr: int = 0,
         max_width: Optional[int] = None,
-    ):
+    ) -> None:
+        """Write *text* at ``(y, x)``, silently clipping on overflow.
+
+        If *max_width* is given the text is truncated with a trailing ``~``
+        or right-padded with spaces.
+        """
         try:
             if max_width is not None:
                 if max_width <= 0:
@@ -52,14 +74,21 @@ class TUI:
         except curses.error:
             pass
 
-    def draw_header(self, title: str):
+    def draw_header(self, title: str) -> None:
+        """Draw a full-width reverse-video header bar at row 0."""
         _, width = self.stdscr.getmaxyx()
         self.safe_addstr(0, 0, f" {title} ".ljust(width), COLOR_DEFAULT, curses.A_REVERSE, width)
 
-    def draw_footer(self, text: str):
+    def draw_footer(self, text: str) -> None:
+        """Draw a full-width reverse-video footer at the last row."""
         height, width = self.stdscr.getmaxyx()
         self.safe_addstr(
-            height - 1, 0, f" {text} ".ljust(width - 1), COLOR_DEFAULT, curses.A_REVERSE, width - 1
+            height - 1,
+            0,
+            f" {text} ".ljust(width - 1),
+            COLOR_DEFAULT,
+            curses.A_REVERSE,
+            width - 1,
         )
 
     def draw_progress_bar(
@@ -71,7 +100,8 @@ class TUI:
         prefix: str = "",
         suffix: str = "",
         color: int = COLOR_ACCENT,
-    ):
+    ) -> None:
+        """Render a ``[####----]``-style progress bar."""
         bar_width = width - len(prefix) - len(suffix) - 4
         if bar_width < 5:
             return
@@ -85,11 +115,12 @@ class TUI:
 
     def render_dashboard(
         self,
-        state: Dict[str, Any],
+        state: DownloadProgress,
         course_index: int,
         total_courses: int,
         log: List[str],
-    ):
+    ) -> None:
+        """Repaint the full download-progress dashboard."""
         self.stdscr.erase()
         height, width = self.stdscr.getmaxyx()
         if height < 10 or width < 40:
@@ -100,43 +131,26 @@ class TUI:
         self.draw_header(f"DOWNLOADING COURSE [{course_index}/{total_courses}]")
 
         self.safe_addstr(
-            2,
-            2,
-            f"Course : {state.get('course_title', '')}",
-            COLOR_DEFAULT,
-            curses.A_BOLD,
-            width - 4,
+            2, 2,
+            f"Course : {state.course_title}",
+            COLOR_DEFAULT, curses.A_BOLD, width - 4,
         )
 
-        overall_pct = (
-            (state["done_vids"] / state["total_vids"] * 100)
-            if state.get("total_vids", 0) > 0
-            else 0
-        )
+        overall_pct = state.overall_percent
         self.draw_progress_bar(
-            3,
-            2,
-            width - 4,
-            overall_pct,
+            3, 2, width - 4, overall_pct,
             "Total  :",
-            f"{overall_pct:3.0f}% [{state.get('done_vids', 0):03d}/{state.get('total_vids', 0):03d}]",
+            f"{overall_pct:3.0f}% [{state.done_vids:03d}/{state.total_vids:03d}]",
             COLOR_SUCCESS,
         )
 
         self.safe_addstr(
-            5,
-            2,
-            f"File   : {state.get('current_file', '')}",
-            COLOR_DEFAULT,
-            curses.A_BOLD,
-            width - 4,
+            5, 2,
+            f"File   : {state.current_file}",
+            COLOR_DEFAULT, curses.A_BOLD, width - 4,
         )
 
-        vid_pct = (
-            (state["vid_current_secs"] / state["vid_duration_secs"] * 100)
-            if state.get("vid_duration_secs", 0) > 0
-            else 0
-        )
+        vid_pct = state.video_percent
         self.draw_progress_bar(6, 2, width - 4, vid_pct, "Video  :", f"{vid_pct:3.0f}%", COLOR_WARN)
 
         self.safe_addstr(8, 0, "-" * width, COLOR_DEFAULT)
@@ -154,7 +168,8 @@ class TUI:
         self.draw_footer("Downloading... Press Ctrl+C to abort")
         self.stdscr.refresh()
 
-    def show_error(self, message: str):
+    def show_error(self, message: str) -> None:
+        """Display a blocking error message screen."""
         self.stdscr.erase()
         height, width = self.stdscr.getmaxyx()
 
@@ -171,6 +186,10 @@ class TUI:
         self.stdscr.getch()
 
     def show_legal_warning(self) -> bool:
+        """Show the legal disclaimer and wait for user consent.
+
+        Returns ``True`` if the user agrees, ``False`` otherwise.
+        """
         self.stdscr.erase()
         height, width = self.stdscr.getmaxyx()
 
@@ -202,6 +221,7 @@ class TUI:
                 return False
 
     def edit_settings(self, config: Config) -> None:
+        """Interactive settings editor with validation and persistence."""
         keys = list(config.to_dict().keys())
         selected_idx = 0
         scroll_offset = 0
@@ -248,45 +268,57 @@ class TUI:
             elif ch in (ord("q"), ord("Q"), 27):
                 break
             elif ch in (10, 13):
-                key = keys[selected_idx]
-                prompt = f" New {key} (Blank=cancel, 'CLEAR'=empty): "
+                self._edit_setting_field(config, keys[selected_idx], height, width)
 
-                self.safe_addstr(height - 1, 0, " " * width, COLOR_DEFAULT, curses.A_REVERSE)
-                self.safe_addstr(height - 1, 0, prompt, COLOR_DEFAULT, curses.A_REVERSE)
-                self.stdscr.refresh()
+    def _edit_setting_field(
+        self, config: Config, key: str, height: int, width: int
+    ) -> None:
+        """Prompt the user to edit a single config field."""
+        prompt = f" New {key} (Blank=cancel, 'CLEAR'=empty): "
 
-                curses.echo()
-                curses.curs_set(1)
-                try:
-                    new_val = (
-                        self.stdscr.getstr(height - 1, len(prompt), width - len(prompt) - 1)
-                        .decode()
-                        .strip()
-                    )
-                except Exception:
-                    new_val = ""
-                finally:
-                    curses.noecho()
-                    curses.curs_set(0)
+        self.safe_addstr(height - 1, 0, " " * width, COLOR_DEFAULT, curses.A_REVERSE)
+        self.safe_addstr(height - 1, 0, prompt, COLOR_DEFAULT, curses.A_REVERSE)
+        self.stdscr.refresh()
 
-                if new_val:
-                    if new_val.upper() == "CLEAR":
-                        new_val = ""
-                    elif key in ["download_subtitles", "download_materials"]:
-                        new_val = new_val.lower() in ("true", "1", "yes", "y")
-                    old_val = getattr(config, key)
-                    setattr(config, key, new_val)
-                    valid, err = config.validate()
-                    if not valid:
-                        setattr(config, key, old_val)
-                        logger.warning(f"Config validation failed for {key}: {err}")
-                    else:
-                        from .config import save_config
+        curses.echo()
+        curses.curs_set(1)
+        try:
+            new_val: object = (
+                self.stdscr.getstr(height - 1, len(prompt), width - len(prompt) - 1)
+                .decode()
+                .strip()
+            )
+        except (curses.error, UnicodeDecodeError):
+            new_val = ""
+        finally:
+            curses.noecho()
+            curses.curs_set(0)
 
-                        save_config(config)
-                        logger.info(f"Updated config: {key}")
+        if not new_val:
+            return
 
-    def select_courses(self, courses: List[Dict]) -> List[Dict]:
+        assert isinstance(new_val, str)
+        if new_val.upper() == "CLEAR":
+            new_val = ""
+        elif key in ("download_subtitles", "download_materials"):
+            new_val = new_val.lower() in ("true", "1", "yes", "y")
+
+        old_val = getattr(config, key)
+        setattr(config, key, new_val)
+        valid, err = config.validate()
+        if not valid:
+            setattr(config, key, old_val)
+            logger.warning(f"Config validation failed for {key}: {err}")
+        else:
+            save_config(config)
+            logger.info(f"Updated config: {key}")
+
+    def select_courses(self, courses: List[Course]) -> List[Course]:
+        """Multi-select course picker.
+
+        Returns the selected courses in their original list order, or
+        an empty list if the user cancels.
+        """
         selected: Set[int] = set()
         selected_idx = 0
         scroll_offset = 0
@@ -306,8 +338,7 @@ class TUI:
 
                 course = courses[list_idx]
                 box = "[x]" if list_idx in selected else "[ ]"
-                title = course["title"]
-                text = f"{box} {course['id']:<10} {title}"
+                text = f"{box} {course.id:<10} {course.title}"
 
                 if list_idx == selected_idx:
                     self.safe_addstr(
@@ -344,6 +375,11 @@ class TUI:
         return [courses[i] for i in sorted(selected)]
 
     def main_menu(self, config: Config) -> bool:
+        """Display the main menu.
+
+        Returns ``True`` when the user chooses *Download Courses*,
+        ``False`` when they choose *Exit* or press ``q``.
+        """
         options = [
             ("Download Courses", True),
             ("Settings", "settings"),
@@ -391,7 +427,8 @@ class TUI:
             elif ch in (ord("q"), ord("Q"), 27):
                 return False
 
-    def show_help(self):
+    def show_help(self) -> None:
+        """Display the help / configuration guide."""
         self.stdscr.erase()
         height, width = self.stdscr.getmaxyx()
 

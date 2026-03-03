@@ -1,3 +1,5 @@
+"""Tests for CLI argument parsing and dispatch."""
+
 import sys
 from unittest.mock import patch
 

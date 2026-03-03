@@ -42,6 +42,20 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 
+[tool.coverage.run]
+source = ["udemy_dl"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py39"
@@ -54,6 +68,10 @@ select = [
     "I",
     "B",
     "C4",
+    "UP",
+    "SIM",
+    "RET",
+    "PTH",
 ]
 ignore = ["E501"]
 
@@ -90,8 +108,4 @@ disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]
-disallow_untyped_defs = false
-
-[[tool.mypy.overrides]]
-module = ["udemy_dl.tui", "udemy_dl.app"]
 disallow_untyped_defs = false

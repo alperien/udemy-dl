@@ -1,34 +1,78 @@
 #!/usr/bin/env python3
+"""Entry point for the udemy-dl CLI.
+
+Supports two modes of operation:
+
+* **Interactive (default)** — launches a curses-based TUI for course
+  selection, settings editing, and progress monitoring.
+* **Headless** (``--headless`` or ``--course-id``) — runs without a TUI,
+  printing progress to stdout.  Suitable for cron jobs and CI pipelines.
+"""
+
+from __future__ import annotations
+
 import argparse
 import curses
+import shutil
 import sys
 
-from .app import Application
-from .utils import setup_logging
+from .config import QUALITY_OPTIONS, load_config
+from .models import Course, DownloadProgress
+from .pipeline import DownloadPipeline
+from .utils import LOG_FILE, get_logger, setup_logging
 
-logger = None
+logger = get_logger(__name__)
+
+
+
+
+
+class _HeadlessReporter:
+    """Minimal :class:`~udemy_dl.pipeline.ProgressReporter` for stdout."""
+
+    def __init__(self) -> None:
+        self._interrupted = False
+
+    def on_log(self, message: str) -> None:
+        print(f"  {message}")
+
+    def on_progress(
+        self,
+        progress: DownloadProgress,
+        course_index: int,
+        total_courses: int,
+    ) -> None:
+        pass
+
+    def is_interrupted(self) -> bool:
+        return self._interrupted
+
+
+
 
 
 def _main(stdscr: "curses.window") -> None:
-    global logger
-    logger = setup_logging()
+    """Callback for :func:`curses.wrapper` — runs the interactive TUI."""
+    root_logger = setup_logging()
     try:
+        from .app import Application
+
         app = Application(stdscr)
         app.run()
     except KeyboardInterrupt:
-        if logger:
-            logger.info("User pressed Ctrl+C, exiting cleanly")
+        root_logger.info("User pressed Ctrl+C, exiting cleanly")
     except Exception as e:
-        if logger:
-            logger.exception(f"Unhandled exception: {e}")
+        root_logger.exception(f"Unhandled exception: {e}")
         print(f"\nFatal error: {e}")
-        from .utils import LOG_FILE
-
         print(f"Check {LOG_FILE} for details")
         sys.exit(1)
 
 
+
+
+
 def _parse_args() -> argparse.Namespace:
+    """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
         prog="udemy-dl",
         description="Lightweight CLI tool for locally backing up your owned Udemy courses.",
@@ -55,7 +99,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--quality",
-        choices=["2160", "1440", "1080", "720", "480", "360"],
+        choices=QUALITY_OPTIONS,
         help="Override the preferred video quality for this run.",
     )
     parser.add_argument(
@@ -72,11 +116,12 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _get_version() -> str:
+    """Return the package version string."""
     try:
-        from importlib.metadata import version
+        from importlib.metadata import PackageNotFoundError, version
 
         return version("udemy-dl")
-    except Exception:
+    except (ImportError, PackageNotFoundError):
         try:
             from . import __version__
 
@@ -85,14 +130,14 @@ def _get_version() -> str:
             return "unknown"
 
 
-def _run_headless(args: argparse.Namespace) -> None:
-    from pathlib import Path
 
+
+
+def _run_headless(args: argparse.Namespace) -> None:
+    """Execute the download pipeline without a TUI."""
     from .api import UdemyAPI
-    from .config import load_config
     from .dl import VideoDownloader
-    from .state import AppState, DownloadState
-    from .utils import sanitize_filename, validate_video
+    from .state import AppState
 
     setup_logging()
     config = load_config()
@@ -113,8 +158,6 @@ def _run_headless(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    import shutil
-
     if not shutil.which("ffmpeg"):
         print("Error: ffmpeg is not installed or not in PATH.", file=sys.stderr)
         sys.exit(1)
@@ -122,9 +165,12 @@ def _run_headless(args: argparse.Namespace) -> None:
     api = UdemyAPI(config)
     downloader = VideoDownloader(config, api.session)
     app_state = AppState()
+    reporter = _HeadlessReporter()
+
+
 
     if args.course_id:
-        courses = [{"id": args.course_id, "title": f"Course {args.course_id}"}]
+        courses = [Course(id=args.course_id, title=f"Course {args.course_id}")]
     else:
         print("Fetching owned courses...")
         courses = api.fetch_owned_courses()
@@ -133,117 +179,29 @@ def _run_headless(args: argparse.Namespace) -> None:
             sys.exit(1)
         print(f"Found {len(courses)} course(s).")
 
+    pipeline = DownloadPipeline(
+        config=config,
+        api=api,
+        downloader=downloader,
+        state=app_state,
+        reporter=reporter,
+    )
+
     try:
-        for course in courses:
-            print(f"\n[COURSE] {course['title']} (id={course['id']})")
-            app_state.current_course_state = DownloadState(
-                course_id=course["id"],
-                course_title=course["title"],
-                total_lectures=0,
-            )
-
-            try:
-                curriculum = api.get_course_curriculum(course["id"])
-            except RuntimeError as e:
-                print(f"[ERROR] {e}", file=sys.stderr)
-                continue
-
-            if curriculum and course["title"].startswith("Course "):
-                first_chapter = next(
-                    (
-                        item
-                        for item in curriculum
-                        if item.get("_class") == "chapter" and item.get("title")
-                    ),
-                    None,
-                )
-                if first_chapter:
-                    course["title"] = first_chapter["title"]
-
-            base_dir = Path(config.dl_path) / sanitize_filename(course["title"])
-            chapter_index = 0
-            lecture_index = 0
-            current_chapter_dir = None
-
-            saved_state = app_state.load_state()
-            completed_lectures: set = set()
-            if saved_state and saved_state.course_id == course["id"]:
-                completed_lectures = set(saved_state.completed_lectures)
-                print(f"[RESUME] {len(completed_lectures)} previously completed lectures")
-
-            for item in curriculum:
-                item_type = item.get("_class")
-                clean_title = sanitize_filename(str(item.get("title") or "Unknown"))
-
-                if item_type == "chapter":
-                    chapter_index += 1
-                    lecture_index = 0
-                    current_chapter_dir = base_dir / f"{chapter_index:02d} - {clean_title}"
-                elif item_type == "lecture":
-                    lecture_index += 1
-                    lecture_id = item.get("id")
-                    asset = item.get("asset")
-                    url = downloader.get_quality_video_url(asset) if asset else ""
-
-                    if not current_chapter_dir:
-                        current_chapter_dir = base_dir / "00 - Uncategorized"
-
-                    out_path = current_chapter_dir / f"{lecture_index:03d} - {clean_title}.mp4"
-                    out_path.parent.mkdir(parents=True, exist_ok=True)
-
-                    if lecture_id and lecture_id in completed_lectures:
-                        print(f"  [CACHE] {clean_title[:50]}")
-                        if config.download_subtitles:
-                            downloader.download_subtitles(course["id"], lecture_id, out_path)
-                        if config.download_materials:
-                            downloader.download_materials(course["id"], lecture_id, out_path)
-                        continue
-
-                    if not url:
-                        print(f"  [SKIP]  {clean_title[:50]} (no video)")
-                        if lecture_id:
-                            app_state.current_course_state.mark_completed(lecture_id)
-                            app_state.save_state()
-                            if config.download_subtitles:
-                                downloader.download_subtitles(course["id"], lecture_id, out_path)
-                            if config.download_materials:
-                                downloader.download_materials(course["id"], lecture_id, out_path)
-                        continue
-
-                    if (
-                        out_path.exists()
-                        and out_path.stat().st_size > 1024
-                        and validate_video(out_path)
-                    ):
-                        print(f"  [CACHE] {clean_title[:50]} (file exists)")
-                        if lecture_id:
-                            app_state.current_course_state.mark_completed(lecture_id)
-                            app_state.save_state()
-                        continue
-
-                    print(f"  [DL]    {clean_title[:50]}")
-                    proc = downloader.download_video(url, out_path)
-                    returncode = downloader.wait_for_download(proc)
-
-                    if returncode == 0 and out_path.exists() and validate_video(out_path):
-                        print(f"  [DONE]  {clean_title[:50]}")
-                        if lecture_id:
-                            app_state.current_course_state.mark_completed(lecture_id)
-                            app_state.save_state()
-                    else:
-                        print(f"  [FAIL]  {clean_title[:50]}", file=sys.stderr)
-                        if out_path.exists():
-                            out_path.unlink()
-
-            app_state.clear_state()
-            print(f"[DONE] Finished: {course['title']}")
+        pipeline.download_courses(courses)
+        print("\n[DONE] All requested courses processed.")
     except KeyboardInterrupt:
+        reporter._interrupted = True
         print("\nInterrupted — saving progress...")
         app_state.save_state()
         sys.exit(130)
 
 
+
+
+
 def run() -> None:
+    """CLI entry point dispatching to TUI or headless mode."""
     args = _parse_args()
 
     if args.headless or args.course_id:

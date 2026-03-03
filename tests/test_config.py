@@ -1,3 +1,5 @@
+"""Tests for configuration loading, saving, and validation."""
+
 import json
 import os
 from unittest.mock import patch
@@ -72,7 +74,8 @@ class TestConfigSaveLoad:
         config_file = tmp_path / "config.json"
 
         with patch("udemy_dl.config.CONFIG_FILE", str(config_file)):
-            save_config(cfg)
+            result = save_config(cfg)
+            assert result is True
             assert config_file.exists()
             data = json.loads(config_file.read_text())
             assert data["token"] == "mytoken12345"
@@ -85,6 +88,18 @@ class TestConfigSaveLoad:
             assert loaded.quality == "720"
             assert loaded.download_subtitles is False
             assert loaded.download_materials is True
+
+    def test_save_config_returns_true_on_success(self, tmp_path):
+        cfg = Config(token="x" * 20, client_id="y" * 10)
+        config_file = tmp_path / "config.json"
+        with patch("udemy_dl.config.CONFIG_FILE", str(config_file)):
+            assert save_config(cfg) is True
+
+    def test_save_config_returns_false_on_failure(self, tmp_path):
+        cfg = Config(token="x" * 20, client_id="y" * 10)
+        bad_path = "/nonexistent/dir/config.json"
+        with patch("udemy_dl.config.CONFIG_FILE", bad_path):
+            assert save_config(cfg) is False
 
     def test_load_config_from_env(self, tmp_path):
         env_vars = {

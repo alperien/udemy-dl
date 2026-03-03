@@ -1,3 +1,12 @@
+"""Download-progress persistence for crash recovery and resume.
+
+State is written atomically via a temporary file + ``os.replace`` so that a
+crash mid-write cannot corrupt the state file.  The format is a single JSON
+object (see :class:`DownloadState`).
+"""
+
+from __future__ import annotations
+
 import json
 import os
 import tempfile
@@ -14,6 +23,16 @@ STATE_FILE = str(CONFIG_DIR / "download_state.json")
 
 @dataclass
 class DownloadState:
+    """Tracks which lectures in a single course have been downloaded.
+
+    Attributes:
+        course_id: Udemy numeric course identifier.
+        course_title: Human-readable course title (for log messages).
+        completed_lectures: Set of lecture IDs that finished downloading.
+        total_lectures: Expected total number of lectures in the course.
+        last_updated: ISO-8601 timestamp of the most recent save.
+    """
+
     course_id: Optional[int] = None
     course_title: str = ""
     completed_lectures: Set[int] = field(default_factory=set)
@@ -21,6 +40,7 @@ class DownloadState:
     last_updated: str = ""
 
     def to_dict(self) -> Dict:
+        """Serialise to a JSON-compatible dict (sets → sorted lists)."""
         return {
             "course_id": self.course_id,
             "course_title": self.course_title,
@@ -30,10 +50,16 @@ class DownloadState:
         }
 
     def mark_completed(self, lecture_id: int) -> None:
+        """Record *lecture_id* as successfully downloaded."""
         self.completed_lectures.add(lecture_id)
 
     @classmethod
     def from_dict(cls, data: Dict) -> "DownloadState":
+        """Reconstruct from a dict produced by :meth:`to_dict`.
+
+        Unknown keys are silently ignored so that older state files remain
+        forward-compatible.
+        """
         completed = data.get("completed_lectures", [])
         return cls(
             course_id=data.get("course_id"),
@@ -45,11 +71,21 @@ class DownloadState:
 
 
 class AppState:
+    """Application-level state wrapper that manages persistence.
+
+    Holds the current :class:`DownloadState` and provides helpers to
+    load / save / clear it from disk.
+    """
+
     def __init__(self) -> None:
-        self.interrupted = False
+        self.interrupted: bool = False
         self.current_course_state: Optional[DownloadState] = None
 
     def load_state(self) -> Optional[DownloadState]:
+        """Load the saved download state from disk.
+
+        Returns ``None`` if no state file exists or if it is corrupted.
+        """
         state_path = Path(STATE_FILE)
         if state_path.exists():
             try:
@@ -61,11 +97,16 @@ class AppState:
         return None
 
     def save_state(self) -> None:
+        """Atomically persist the current course state to disk.
+
+        Uses a temporary file + ``os.replace`` to prevent partial writes.
+        Does nothing if :attr:`current_course_state` is ``None``.
+        """
         if self.current_course_state is None:
             return
         state_path = Path(STATE_FILE)
         self.current_course_state.last_updated = datetime.now().isoformat()
-        tmp_path = None
+        tmp_path: str | None = None
         try:
             fd, tmp_path = tempfile.mkstemp(dir=state_path.parent, suffix=".tmp")
             with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -82,6 +123,7 @@ class AppState:
                     pass
 
     def clear_state(self) -> None:
+        """Delete the state file and reset in-memory state."""
         state_path = Path(STATE_FILE)
         if state_path.exists():
             try:
