@@ -14,7 +14,7 @@ fast, byte-sized CLI tool for locally backing up your udemy courses
 - resume interrupted downloads
 - quality selection
 - subtitle download
-- supplementary materials download
+- extra materials download
 - cross-platform: Linux, macOS, Windows, etc.
 
 ---
