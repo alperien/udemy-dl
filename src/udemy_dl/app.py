@@ -1,168 +1,149 @@
-"""Interactive TUI application for downloading Udemy courses.
+from __future__ import annotations 
 
-This module wires together the curses-based :class:`~udemy_dl.tui.TUI`
-with the shared :class:`~udemy_dl.pipeline.DownloadPipeline`, acting as
-a thin presentation-layer adapter.
-"""
+import curses 
+import shutil 
+import signal 
+from collections import deque 
+from datetime import datetime 
+from typing import List 
 
-from __future__ import annotations
+from .api import UdemyAPI 
+from .config import load_config 
+from .dl import VideoDownloader 
+from .models import Course ,DownloadProgress 
+from .pipeline import DownloadPipeline 
+from .state import AppState 
+from .tui import COLOR_DIM ,COLOR_SUCCESS ,TUI 
+from .utils import get_logger 
 
-import curses
-import shutil
-import signal
-from collections import deque
-from datetime import datetime
-from typing import List
-
-from .api import UdemyAPI
-from .config import load_config
-from .dl import VideoDownloader
-from .models import Course, DownloadProgress
-from .pipeline import DownloadPipeline
-from .state import AppState
-from .tui import COLOR_DIM, COLOR_SUCCESS, TUI
-from .utils import get_logger
-
-logger = get_logger(__name__)
+logger =get_logger (__name__ )
 
 
-class _TUIReporter:
-    """Adapts the TUI to the :class:`~udemy_dl.pipeline.ProgressReporter` protocol."""
+class _TUIReporter :
 
-    def __init__(self, tui: TUI, log_buffer: deque) -> None:  # type: ignore[type-arg]
-        self.tui = tui
-        self.log_buffer = log_buffer
-        self.interrupted = False
+    def __init__ (self ,tui :TUI ,log_buffer :deque )->None :
+        self .tui =tui 
+        self .log_buffer =log_buffer 
+        self .interrupted =False 
 
-    def on_log(self, message: str) -> None:
-        ts = datetime.now().strftime("%H:%M:%S")
-        entry = f"[{ts}] {message}"
-        self.log_buffer.append(entry)
-        logger.info(message)
+    def on_log (self ,message :str )->None :
+        ts =datetime .now ().strftime ("%H:%M:%S")
+        entry =f"[{ts }] {message }"
+        self .log_buffer .append (entry )
+        logger .info (message )
 
-    def on_progress(
-        self,
-        progress: DownloadProgress,
-        course_index: int,
-        total_courses: int,
-    ) -> None:
-        self.tui.render_dashboard(
-            progress, course_index, total_courses, list(self.log_buffer)
+    def on_progress (
+    self ,
+    progress :DownloadProgress ,
+    course_index :int ,
+    total_courses :int ,
+    )->None :
+        self .tui .render_dashboard (
+        progress ,course_index ,total_courses ,list (self .log_buffer )
         )
 
-    def is_interrupted(self) -> bool:
-        return self.interrupted
+    def is_interrupted (self )->bool :
+        return self .interrupted 
 
 
-class Application:
-    """Top-level interactive application.
+class Application :
 
-    Presents the main menu, legal disclaimer, course picker, and then
-    delegates all download work to :class:`DownloadPipeline`.
+    def __init__ (self ,stdscr :"curses.window")->None :
+        self .stdscr =stdscr 
+        self .tui =TUI (stdscr )
+        self .config =load_config ()
+        self .state =AppState ()
+        self .log_buffer :deque =deque (maxlen =100 )
+        self .reporter =_TUIReporter (self .tui ,self .log_buffer )
 
-    Args:
-        stdscr: The root curses window provided by :func:`curses.wrapper`.
-    """
+    def _setup_signal_handlers (self )->None :
 
-    def __init__(self, stdscr: "curses.window") -> None:
-        self.stdscr = stdscr
-        self.tui = TUI(stdscr)
-        self.config = load_config()
-        self.state = AppState()
-        self.log_buffer: deque = deque(maxlen=100)  # type: ignore[type-arg]
-        self.reporter = _TUIReporter(self.tui, self.log_buffer)
+        def handler (sig :int ,frame :object )->None :
+            self .reporter .interrupted =True 
+            self .state .interrupted =True 
 
-    def _setup_signal_handlers(self) -> None:
-        """Install SIGINT / SIGTERM handlers that set the interrupt flag."""
+        signal .signal (signal .SIGINT ,handler )
+        signal .signal (signal .SIGTERM ,handler )
 
-        def handler(sig: int, frame: object) -> None:
-            self.reporter.interrupted = True
-            self.state.interrupted = True
+    def run (self )->None :
+        curses .curs_set (0 )
 
-        signal.signal(signal.SIGINT, handler)
-        signal.signal(signal.SIGTERM, handler)
+        if not shutil .which ("ffmpeg"):
+            self .tui .show_error ("ffmpeg is not installed or not in PATH.")
+            return 
+        if not shutil .which ("ffprobe"):
+            logger .warning ("ffprobe not found. Video validation will be skipped.")
 
-    def run(self) -> None:
-        """Main entry point: show legal screen, menu loop, download loop."""
-        curses.curs_set(0)
+        if not self .tui .show_legal_warning ():
+            logger .info ("User declined legal terms. Exiting.")
+            return 
 
-        if not shutil.which("ffmpeg"):
-            self.tui.show_error("ffmpeg is not installed or not in PATH.")
-            return
-        if not shutil.which("ffprobe"):
-            logger.warning("ffprobe not found. Video validation will be skipped.")
+        valid ,error_msg =self .config .validate ()
+        if not valid :
+            self .tui .show_error (f"Configuration invalid: {error_msg }")
+            self .tui .edit_settings (self .config )
+            valid ,error_msg =self .config .validate ()
+            if not valid :
+                self .tui .show_error (f"Configuration still invalid: {error_msg }")
+                return 
 
-        if not self.tui.show_legal_warning():
-            logger.info("User declined legal terms. Exiting.")
-            return
+        self ._setup_signal_handlers ()
 
-        valid, error_msg = self.config.validate()
-        if not valid:
-            self.tui.show_error(f"Configuration invalid: {error_msg}")
-            self.tui.edit_settings(self.config)
-            valid, error_msg = self.config.validate()
-            if not valid:
-                self.tui.show_error(f"Configuration still invalid: {error_msg}")
-                return
+        while True :
+            if self .reporter .interrupted :
+                self .reporter .on_log ("Download interrupted. Returning to menu.")
+                self .reporter .interrupted =False 
+                self .state .save_state ()
 
-        self._setup_signal_handlers()
+            if not self .tui .main_menu (self .config ):
+                break 
 
-        while True:
-            if self.reporter.interrupted:
-                self.reporter.on_log("Download interrupted. Returning to menu.")
-                self.reporter.interrupted = False
-                self.state.save_state()
+            self ._run_download_session ()
 
-            if not self.tui.main_menu(self.config):
-                break
+        self .state .clear_state ()
 
-            self._run_download_session()
+    def _run_download_session (self )->None :
+        try :
+            api =UdemyAPI (self .config )
+            downloader =VideoDownloader (self .config ,api .session )
+        except (OSError ,ValueError )as e :
+            self .tui .show_error (f"Failed to initialize session: {e }")
+            return 
 
-        self.state.clear_state()
+        courses :List [Course ]=api .fetch_owned_courses ()
+        if not courses :
+            self .tui .show_error ("Could not fetch courses. Check your token.")
+            return 
 
-    def _run_download_session(self) -> None:
-        """Create API+downloader, pick courses, run the pipeline."""
-        try:
-            api = UdemyAPI(self.config)
-            downloader = VideoDownloader(self.config, api.session)
-        except (OSError, ValueError) as e:
-            self.tui.show_error(f"Failed to initialize session: {e}")
-            return
+        chosen_courses =self .tui .select_courses (courses )
+        if not chosen_courses :
+            return 
 
-        courses: List[Course] = api.fetch_owned_courses()
-        if not courses:
-            self.tui.show_error("Could not fetch courses. Check your token.")
-            return
-
-        chosen_courses = self.tui.select_courses(courses)
-        if not chosen_courses:
-            return
-
-        pipeline = DownloadPipeline(
-            config=self.config,
-            api=api,
-            downloader=downloader,
-            state=self.state,
-            reporter=self.reporter,
+        pipeline =DownloadPipeline (
+        config =self .config ,
+        api =api ,
+        downloader =downloader ,
+        state =self .state ,
+        reporter =self .reporter ,
         )
 
-        completed = pipeline.download_courses(chosen_courses)
+        completed =pipeline .download_courses (chosen_courses )
 
-        if completed:
-            self.stdscr.clear()
-            height, width = self.stdscr.getmaxyx()
-            self.tui.safe_addstr(
-                height // 2,
-                max(0, (width - 40) // 2),
-                "All downloads completed successfully!",
-                COLOR_SUCCESS,
-                curses.A_BOLD,
+        if completed :
+            self .stdscr .clear ()
+            height ,width =self .stdscr .getmaxyx ()
+            self .tui .safe_addstr (
+            height //2 ,
+            max (0 ,(width -40 )//2 ),
+            "All downloads completed successfully!",
+            COLOR_SUCCESS ,
+            curses .A_BOLD ,
             )
-            self.tui.safe_addstr(
-                height // 2 + 1,
-                max(0, (width - 40) // 2),
-                "[ Press any key to return to menu ]",
-                COLOR_DIM,
+            self .tui .safe_addstr (
+            height //2 +1 ,
+            max (0 ,(width -40 )//2 ),
+            "[ Press any key to return to menu ]",
+            COLOR_DIM ,
             )
-            self.stdscr.refresh()
-            self.stdscr.getch()
+            self .stdscr .refresh ()
+            self .stdscr .getch ()
