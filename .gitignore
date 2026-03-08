@@ -20,3 +20,4 @@ download_state.json
 *.swp
 *.swo
 .env
+plans/
