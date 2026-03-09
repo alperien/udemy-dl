@@ -98,12 +98,12 @@ class DownloadPipeline:
             missing_count = len(all_completed) - len(completed_lectures)
             if missing_count > 0:
                 self.reporter.on_log(
-                    f"[RESUME] Found {len (completed_lectures )} completed lectures "
+                    f"[RESUME] Found {len(completed_lectures)} completed lectures "
                     f"({missing_count } files missing, will re-download)"
                 )
             elif completed_lectures:
                 self.reporter.on_log(
-                    f"[RESUME] Found {len (completed_lectures )} previously completed lectures"
+                    f"[RESUME] Found {len(completed_lectures)} previously completed lectures"
                 )
 
         for lecture in download_queue:
@@ -128,7 +128,7 @@ class DownloadPipeline:
             if item_type == "chapter":
                 chapter_index += 1
                 lecture_index = 0
-                current_chapter_dir = base_dir / f"{chapter_index :02d} - {clean_title }"
+                current_chapter_dir = base_dir / f"{chapter_index:02d} - {clean_title}"
             elif item_type == "lecture":
                 lecture_index += 1
                 lecture_id = item.get("id")
@@ -167,7 +167,7 @@ class DownloadPipeline:
                     continue
                 if not current_chapter_dir:
                     current_chapter_dir = base_dir / "00 - Uncategorized"
-                file_path = current_chapter_dir / f"{lecture_index :03d} - {clean_title }{ext }"
+                file_path = current_chapter_dir / f"{lecture_index:03d} - {clean_title}{ext}"
                 download_queue.append(
                     Lecture(
                         id=lecture_id,
@@ -203,7 +203,7 @@ class DownloadPipeline:
             if self.config.download_subtitles and lecture.id:
                 subs = self.downloader.download_subtitles(course.id, lecture.id, out_path)
                 if subs:
-                    self.reporter.on_log(f"[SUBS] Downloaded {len (subs )} subtitle track(s)")
+                    self.reporter.on_log(f"[SUBS] Downloaded {len(subs)} subtitle track(s)")
             if self.config.download_materials and lecture.id:
                 mats = self.downloader.download_materials(
                     course.id,
@@ -212,7 +212,7 @@ class DownloadPipeline:
                     self.reporter.is_interrupted,
                 )
                 if mats:
-                    self.reporter.on_log(f"[MATS] Downloaded {len (mats )} material file(s)")
+                    self.reporter.on_log(f"[MATS] Downloaded {len(mats)} material file(s)")
 
         if lecture.id and lecture.id in completed_lectures:
             # Check if file actually exists before skipping
@@ -241,16 +241,14 @@ class DownloadPipeline:
         # Case 1: No downloadable content at all
         if not lecture.has_url_based_download:
             if lecture.asset_type == "Article" and lecture.body:
-                self.reporter.on_log(f"[DOWNLOAD] Saving article: {lecture .title [:30 ]}...")
+                self.reporter.on_log(f"[DOWNLOAD] Saving article: {lecture.title[:30]}...")
                 try:
                     out_path.write_text(lecture.body, encoding="utf-8")
-                    self.reporter.on_log(f"[DONE] Saved article: {lecture .title [:30 ]}")
+                    self.reporter.on_log(f"[DONE] Saved article: {lecture.title[:30]}")
                 except OSError as e:
-                    self.reporter.on_log(f"[ERROR] Failed to save article: {e }")
+                    self.reporter.on_log(f"[ERROR] Failed to save article: {e}")
             else:
-                self.reporter.on_log(
-                    f"[INFO] No downloadable asset for: {lecture .title [:30 ]}..."
-                )
+                self.reporter.on_log(f"[INFO] No downloadable asset for: {lecture.title[:30]}...")
             progress.done_vids += 1
             if lecture.id and self.state.current_course_state:
                 self.state.current_course_state.mark_completed(lecture.id)
@@ -263,8 +261,8 @@ class DownloadPipeline:
             if out_path.exists() and out_path.stat().st_size > DIRECT_DOWNLOAD_MIN_SIZE:
                 size_mb = out_path.stat().st_size / (1024 * 1024)
                 self.reporter.on_log(
-                    f"[CACHE] Skipping existing {lecture .asset_type }: "
-                    f"{lecture .title [:20 ]}... ({size_mb :.1f}MB)"
+                    f"[CACHE] Skipping existing {lecture.asset_type}: "
+                    f"{lecture.title[:20]}... ({size_mb:.1f}MB)"
                 )
                 progress.done_vids += 1
                 if lecture.id and self.state.current_course_state:
@@ -274,7 +272,7 @@ class DownloadPipeline:
                 return
 
             self.reporter.on_log(
-                f"[DOWNLOAD] Fetching {lecture .asset_type }: {lecture .title [:30 ]}..."
+                f"[DOWNLOAD] Fetching {lecture.asset_type}: {lecture.title[:30]}..."
             )
             success = self.downloader.download_file(
                 lecture.url, out_path, self.reporter.is_interrupted
@@ -283,21 +281,19 @@ class DownloadPipeline:
                 return
             if success:
                 progress.done_vids += 1
-                self.reporter.on_log(
-                    f"[DONE] Saved {lecture .asset_type }: {lecture .title [:30 ]}"
-                )
+                self.reporter.on_log(f"[DONE] Saved {lecture.asset_type}: {lecture.title[:30]}")
                 if lecture.id and self.state.current_course_state:
                     self.state.current_course_state.mark_completed(lecture.id)
                     self.state.save_state()
             else:
-                self.reporter.on_log(f"[ERROR] Download failed: {lecture .title [:30 ]}")
+                self.reporter.on_log(f"[ERROR] Download failed: {lecture.title[:30]}")
             download_extras()
             return
 
         # Case 3: Video download via ffmpeg
         if not lecture.has_video:
             # Safety net: no video URL but asset_type claims Video
-            self.reporter.on_log(f"[INFO] No video stream for: {lecture .title [:30 ]}...")
+            self.reporter.on_log(f"[INFO] No video stream for: {lecture.title[:30]}...")
             progress.done_vids += 1
             if lecture.id and self.state.current_course_state:
                 self.state.current_course_state.mark_completed(lecture.id)
@@ -310,8 +306,7 @@ class DownloadPipeline:
             if validity in (ValidationResult.VALID, ValidationResult.UNKNOWN):
                 size_mb = out_path.stat().st_size / (1024 * 1024)
                 self.reporter.on_log(
-                    f"[CACHE] Skipping existing file: "
-                    f"{lecture .title [:20 ]}... ({size_mb :.1f}MB)"
+                    f"[CACHE] Skipping existing file: " f"{lecture.title[:20]}... ({size_mb:.1f}MB)"
                 )
                 progress.done_vids += 1
                 if lecture.id and self.state.current_course_state:
@@ -320,13 +315,13 @@ class DownloadPipeline:
                 download_extras()
                 return
             self.reporter.on_log(
-                f"[WARN] Invalid file detected, re-downloading: " f"{lecture .title [:20 ]}"
+                f"[WARN] Invalid file detected, re-downloading: {lecture.title[:20]}"
             )
             out_path.unlink()
         elif out_path.exists():
-            self.reporter.on_log(f"[WARN] Overwriting partial file: {lecture .title [:20 ]}")
+            self.reporter.on_log(f"[WARN] Overwriting partial file: {lecture.title[:20]}")
 
-        self.reporter.on_log(f"[DOWNLOAD] Starting: {lecture .title [:30 ]}...")
+        self.reporter.on_log(f"[DOWNLOAD] Starting: {lecture.title[:30]}...")
         proc = self.downloader.download_video(lecture.url, out_path)
 
         progress.vid_duration_secs = 0
@@ -359,20 +354,18 @@ class DownloadPipeline:
         validity = validate_video(out_path)
         is_valid = validity in (ValidationResult.VALID, ValidationResult.UNKNOWN)
         if returncode != 0:
-            self.reporter.on_log(f"[WARN] FFmpeg exited with code {returncode }")
+            self.reporter.on_log(f"[WARN] FFmpeg exited with code {returncode}")
             if not is_ffprobe_available():
                 is_valid = False
 
         if out_path.exists() and is_valid:
             progress.done_vids += 1
-            self.reporter.on_log(f"[DONE] Finished: {lecture .title [:30 ]}")
+            self.reporter.on_log(f"[DONE] Finished: {lecture.title[:30]}")
             if lecture.id and self.state.current_course_state:
                 self.state.current_course_state.mark_completed(lecture.id)
                 self.state.save_state()
             download_extras()
         else:
-            self.reporter.on_log(
-                f"[ERROR] Download failed or invalid file: {lecture .title [:30 ]}"
-            )
+            self.reporter.on_log(f"[ERROR] Download failed or invalid file: {lecture.title[:30]}")
             if out_path.exists():
                 out_path.unlink()
