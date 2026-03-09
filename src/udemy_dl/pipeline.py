@@ -24,6 +24,9 @@ logger = get_logger(__name__)
 DURATION_REGEX = re.compile(r"duration:\s*(?P<time>\d{2}:\d{2}:\d{2}(?:\.\d+)?)")
 STATS_REGEX = re.compile(r"time=(?P<time>\d{2}:\d{2}:\d{2}(?:\.\d+)?)")
 
+DIRECT_DOWNLOAD_MIN_SIZE = 500
+VIDEO_MIN_SIZE = 1024
+
 
 class ProgressReporter(Protocol):
     def on_log(self, message: str) -> None:
@@ -160,6 +163,8 @@ class DownloadPipeline:
                 if asset_type == "Article" and asset:
                     article_body = asset.get("body", "") or ""
 
+                if lecture_id is None:
+                    continue
                 if not current_chapter_dir:
                     current_chapter_dir = base_dir / "00 - Uncategorized"
                 file_path = current_chapter_dir / f"{lecture_index :03d} - {clean_title }{ext }"
@@ -255,7 +260,7 @@ class DownloadPipeline:
 
         # Case 2: Direct HTTP download (PDF, Presentation, Audio, E-Book)
         if lecture.is_direct_download:
-            if out_path.exists() and out_path.stat().st_size > 500:
+            if out_path.exists() and out_path.stat().st_size > DIRECT_DOWNLOAD_MIN_SIZE:
                 size_mb = out_path.stat().st_size / (1024 * 1024)
                 self.reporter.on_log(
                     f"[CACHE] Skipping existing {lecture .asset_type }: "
@@ -300,7 +305,7 @@ class DownloadPipeline:
             download_extras()
             return
 
-        if out_path.exists() and out_path.stat().st_size > 1024:
+        if out_path.exists() and out_path.stat().st_size > VIDEO_MIN_SIZE:
             validity = validate_video(out_path)
             if validity in (ValidationResult.VALID, ValidationResult.UNKNOWN):
                 size_mb = out_path.stat().st_size / (1024 * 1024)
@@ -333,13 +338,11 @@ class DownloadPipeline:
                     proc.terminate()
                     self.reporter.on_log("[WARN] FFmpeg terminated by user")
                     break
-                if progress.vid_duration_secs == 0:
-                    match = DURATION_REGEX.search(line)
-                    if match:
-                        time_val = match.group("time").split(".")[0]
-                        progress.vid_duration_secs = time_string_to_seconds(time_val)
-                if match := STATS_REGEX.search(line):
+                if progress.vid_duration_secs == 0 and (match := DURATION_REGEX.search(line)):
                     time_val = match.group("time").split(".")[0]
+                    progress.vid_duration_secs = time_string_to_seconds(time_val)
+                if stats_match := STATS_REGEX.search(line):
+                    time_val = stats_match.group("time").split(".")[0]
                     progress.vid_current_secs = min(
                         time_string_to_seconds(time_val),
                         progress.vid_duration_secs,

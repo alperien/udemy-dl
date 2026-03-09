@@ -7,7 +7,7 @@ from contextlib import suppress
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .utils import CONFIG_DIR, get_logger, set_secure_permissions
+from .utils import CONFIG_DIR, _ensure_config_dir, get_logger, set_secure_permissions
 
 logger = get_logger(__name__)
 
@@ -38,7 +38,13 @@ class Config:
         if not self.domain.startswith("https://"):
             return False, "Invalid domain URL (must start with https://)"
         if self.quality not in QUALITY_OPTIONS:
-            return False, f"Invalid quality option. Choose from: {QUALITY_OPTIONS }"
+            return False, f"Invalid quality option. Choose from: {QUALITY_OPTIONS}"
+        dl_path = Path(self.dl_path)
+        if not dl_path.is_absolute():
+            validated_dl_path = str(Path.home() / dl_path)
+            dl_path = Path(validated_dl_path)
+        if not dl_path.parent.exists():
+            return False, f"Download path parent does not exist: {dl_path.parent}"
         return True, ""
 
     def to_dict(self) -> dict:
@@ -73,16 +79,15 @@ def _merge_saved_config(config: Config) -> None:
     try:
         saved = json.loads(config_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
-        logger.error(f"Failed to load config file: {e }")
+        logger.error(f"Failed to load config file: {e}")
         return
 
     for env_key, field_name in _ENV_FIELD_MAP.items():
         if not os.getenv(env_key):
-            val = str(saved.get(field_name) or getattr(config, field_name)).strip()
-            setattr(config, field_name, val)
-
-    if not os.getenv("UDEMY_DL_PATH") and config.dl_path == "downloads":
-        config.dl_path = str(Path.home() / "Downloads" / "udemy-dl")
+            val = saved.get(field_name)
+            # Only override if saved value is non-empty
+            if val and isinstance(val, str) and val.strip():
+                setattr(config, field_name, val.strip())
 
     for env_key, field_name in _BOOL_ENV_FIELD_MAP.items():
         if not os.getenv(env_key):
@@ -105,6 +110,7 @@ def load_config() -> Config:
 
 
 def save_config(config: Config) -> bool:
+    _ensure_config_dir()
     config_path = Path(CONFIG_FILE)
     tmp_path: str | None = None
     try:
@@ -117,7 +123,7 @@ def save_config(config: Config) -> bool:
         logger.info("Configuration saved successfully")
         return True
     except OSError as e:
-        logger.error(f"Failed to save config: {e }")
+        logger.error(f"Failed to save config: {e}")
         if tmp_path:
             with suppress(OSError):
                 Path(tmp_path).unlink()

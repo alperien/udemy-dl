@@ -5,11 +5,13 @@ import shutil
 import signal
 from collections import deque
 from datetime import datetime
+from types import FrameType
+from typing import Any
 
 from .api import UdemyAPI
 from .config import load_config
 from .dl import VideoDownloader
-from .models import DownloadProgress
+from .models import Course, DownloadProgress
 from .pipeline import DownloadPipeline
 from .state import AppState
 from .tui import COLOR_DIM, COLOR_SUCCESS, TUI
@@ -26,7 +28,7 @@ class _TUIReporter:
 
     def on_log(self, message: str) -> None:
         ts = datetime.now().strftime("%H:%M:%S")
-        entry = f"[{ts }] {message }"
+        entry = f"[{ts}] {message}"
         self.log_buffer.append(entry)
         logger.info(message)
 
@@ -50,14 +52,26 @@ class Application:
         self.state = AppState()
         self.log_buffer: deque = deque(maxlen=100)
         self.reporter = _TUIReporter(self.tui, self.log_buffer)
+        self._original_sigint: Any = None
+        self._original_sigterm: Any = None
+        self._sigint_set = False
+        self._sigterm_set = False
 
     def _setup_signal_handlers(self) -> None:
-        def handler(sig: int, frame: object) -> None:
+        def handler(sig: int, _frame: FrameType | None) -> None:
             self.reporter.interrupted = True
             self.state.interrupted = True
 
-        signal.signal(signal.SIGINT, handler)
-        signal.signal(signal.SIGTERM, handler)
+        self._original_sigint = signal.signal(signal.SIGINT, handler)
+        self._sigint_set = True
+        self._original_sigterm = signal.signal(signal.SIGTERM, handler)
+        self._sigterm_set = True
+
+    def _restore_signal_handlers(self) -> None:
+        if self._sigint_set and self._original_sigint is not None:
+            signal.signal(signal.SIGINT, self._original_sigint)
+        if self._sigterm_set and self._original_sigterm is not None:
+            signal.signal(signal.SIGTERM, self._original_sigterm)
 
     def run(self) -> None:
         curses.curs_set(0)
@@ -95,6 +109,7 @@ class Application:
             self._run_download_session()
 
         self.state.clear_state()
+        self._restore_signal_handlers()
 
     def _run_download_session(self) -> None:
         try:
@@ -104,7 +119,7 @@ class Application:
             self.tui.show_error(f"Failed to initialize session: {e }")
             return
 
-        courses: list = api.fetch_owned_courses()
+        courses: list[Course] = api.fetch_owned_courses()
         if not courses:
             self.tui.show_error("Could not fetch courses. Check your token.")
             return

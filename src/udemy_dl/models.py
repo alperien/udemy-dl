@@ -36,32 +36,31 @@ class Lecture:
 
     @property
     def has_url_based_download(self) -> bool:
-        """True if lecture has a URL-based download (video stream or file asset)."""
         return bool(self.url)
 
     @property
     def is_direct_download(self) -> bool:
-        """True for file-type assets that use HTTP download instead of ffmpeg."""
         return self.asset_type in DIRECT_DOWNLOAD_TYPES and bool(self.url)
 
 
 @dataclass
 class DownloadProgress:
-    """Tracks download progress for a course.
-
-    .. note::
-
-       ``total_vids`` and ``done_vids`` count **all** lecture assets
-       (video, file, article, …), not only videos.  The names are kept
-       for backward compatibility.
-    """
-
     course_title: str = ""
     total_vids: int = 0
     done_vids: int = 0
     current_file: str = "Initializing..."
     vid_duration_secs: int = 0
     vid_current_secs: int = 0
+
+    def __post_init__(self) -> None:
+        if self.total_vids < 0:
+            self.total_vids = 0
+        if self.done_vids < 0:
+            self.done_vids = 0
+        if self.vid_duration_secs < 0:
+            self.vid_duration_secs = 0
+        if self.vid_current_secs < 0:
+            self.vid_current_secs = 0
 
     @property
     def overall_percent(self) -> float:

@@ -226,15 +226,12 @@ class TestDownloadFile:
 
 
 class TestDownloadVideo:
-    """Tests for download_video method."""
-
     def _make_downloader(self):
         cfg = Config(token="t" * 20, client_id="c" * 10)
         session = requests.Session()
         return VideoDownloader(cfg, session)
 
     def test_spawns_ffmpeg_process(self):
-        """Test that download_video spawns ffmpeg process."""
         dl = self._make_downloader()
 
         proc = dl.download_video("http://example.com/video.m3u8", MagicMock())
@@ -244,7 +241,6 @@ class TestDownloadVideo:
         proc.wait()
 
     def test_builds_correct_command(self):
-        """Test that ffmpeg command includes correct parameters."""
         dl = self._make_downloader()
 
         with patch("subprocess.Popen") as mock_popen:
@@ -257,7 +253,6 @@ class TestDownloadVideo:
 
             dl.download_video("http://example.com/video.m3u8", output_path)
 
-            # Check the command was built correctly
             cmd = mock_popen.call_args[0][0]
 
             assert "ffmpeg" in cmd
@@ -266,15 +261,12 @@ class TestDownloadVideo:
 
 
 class TestWaitForDownload:
-    """Tests for wait_for_download method."""
-
     def _make_downloader(self):
         cfg = Config(token="t" * 20, client_id="c" * 10)
         session = requests.Session()
         return VideoDownloader(cfg, session)
 
     def test_returns_exit_code_on_normal_exit(self):
-        """Test that normal exit returns exit code."""
         dl = self._make_downloader()
 
         mock_proc = MagicMock()
@@ -285,7 +277,6 @@ class TestWaitForDownload:
         assert result == 0
 
     def test_returns_minus_one_when_no_exit_code(self):
-        """Test that None returncode returns -1."""
         dl = self._make_downloader()
 
         mock_proc = MagicMock()
@@ -296,7 +287,6 @@ class TestWaitForDownload:
         assert result == -1
 
     def test_kills_process_on_timeout(self):
-        """Test that process is killed on timeout."""
         dl = self._make_downloader()
 
         mock_proc = MagicMock()
@@ -312,10 +302,7 @@ class TestWaitForDownload:
 
 
 class TestReadFfmpegOutput:
-    """Tests for read_ffmpeg_output method."""
-
     def test_reads_stderr_output(self):
-        """Test that ffmpeg output is read correctly."""
         cfg = Config(token="t" * 20, client_id="c" * 10)
         session = requests.Session()
         dl = VideoDownloader(cfg, session)
@@ -323,14 +310,10 @@ class TestReadFfmpegOutput:
         mock_proc = MagicMock()
         mock_proc.poll.return_value = 0
 
-        # Mock stderr with proper file-like object
         mock_stderr = MagicMock()
         mock_stderr.read.return_value = b""
         mock_proc.stderr = mock_stderr
 
-        # Should yield no lines when stderr returns empty
         lines = list(dl.read_ffmpeg_output(mock_proc))
 
-        # The POSIX path may return empty or the line reading may differ
-        # Just ensure method runs without error
         assert isinstance(lines, list)

@@ -30,10 +30,10 @@ class UdemyAPI:
         session = requests.Session()
         session.headers.update(
             {
-                "Authorization": f"Bearer {self .config .token }",
+                "Authorization": f"Bearer {self.config.token}",
                 "User-Agent": USER_AGENT,
                 "Origin": self.config.domain,
-                "Referer": f"{self .config .domain }/",
+                "Referer": f"{self.config.domain}/",
             }
         )
         session.cookies.update(
@@ -53,20 +53,18 @@ class UdemyAPI:
                 if attempt < MAX_RETRIES:
                     wait = RETRY_BACKOFF * (2 ** (attempt - 1))
                     logger.warning(
-                        f"Request failed (attempt {attempt }/{MAX_RETRIES }), "
-                        f"retrying in {wait }s: {e }"
+                        f"Request failed (attempt {attempt}/{MAX_RETRIES}), "
+                        f"retrying in {wait}s: {e}"
                     )
                     time.sleep(wait)
                 else:
-                    logger.error(f"Request failed after {MAX_RETRIES } attempts: {e }")
+                    logger.error(f"Request failed after {MAX_RETRIES} attempts: {e}")
         raise APIError(
-            f"Request failed after {MAX_RETRIES } attempts: {last_exc }",
+            f"Request failed after {MAX_RETRIES} attempts: {last_exc}",
         ) from last_exc
 
     def fetch_owned_courses(self) -> list[Course]:
-        url: str | None = (
-            f"{self .config .domain }/api-2.0/users/me/subscribed-courses/?page_size=100"
-        )
+        url: str | None = f"{self.config.domain}/api-2.0/users/me/subscribed-courses/?page_size=100"
         courses: list[Course] = []
         while url:
             try:
@@ -81,13 +79,13 @@ class UdemyAPI:
                     url = urllib.parse.urljoin(self.config.domain, url)
                     time.sleep(PAGINATION_DELAY)
             except (APIError, RequestException, json.JSONDecodeError) as e:
-                logger.error(f"Error fetching courses (page): {e }")
+                logger.error(f"Error fetching courses (page): {e}")
                 break
         return courses
 
     def get_course_curriculum(self, course_id: int) -> list[dict]:
         url: str | None = (
-            f"{self .config .domain }/api-2.0/courses/{course_id }/"
+            f"{self.config.domain}/api-2.0/courses/{course_id}/"
             f"subscriber-curriculum-items/?page=1&page_size=100"
             f"&fields[lecture]=title,asset,id&fields[chapter]=title"
             f"&fields[asset]=stream_urls,hls_url,asset_type,title,filename,download_urls,body,external_url"
@@ -103,6 +101,6 @@ class UdemyAPI:
                     url = urllib.parse.urljoin(self.config.domain, url)
                     time.sleep(PAGINATION_DELAY)
             except (APIError, RequestException, json.JSONDecodeError) as e:
-                logger.error(f"Error fetching curriculum: {e }")
-                raise CurriculumFetchError(f"Failed to fetch complete curriculum: {e }") from e
+                logger.error(f"Error fetching curriculum: {e}")
+                raise CurriculumFetchError(f"Failed to fetch complete curriculum: {e}") from e
         return items

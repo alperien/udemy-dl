@@ -1,10 +1,3 @@
-"""Video, subtitle, and supplementary-material downloader.
-
-All network-level download operations live here.  The module delegates
-to *ffmpeg* for HLS / DASH video streams and to :mod:`requests` for
-subtitles and materials.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -24,16 +17,12 @@ from .utils import get_logger, sanitize_filename
 logger = get_logger(__name__)
 
 FFMPEG_TIMEOUT = 600
-"""Maximum seconds to wait for a single ffmpeg invocation."""
+CHUNK_SIZE = 8192
+DIRECT_DOWNLOAD_MIN_SIZE = 500
+VIDEO_MIN_SIZE = 1024
 
 
 def _webvtt_to_srt(content: str) -> str:
-    """Convert a WebVTT subtitle string to SRT format.
-
-    Handles short (``MM:SS``) timestamps by zero-padding, strips HTML tags
-    from cue text, and replaces ``.`` with ``,`` in timestamps.  Non-WebVTT
-    input is returned unchanged.
-    """
     if not content.strip().startswith("WEBVTT"):
         return content
 
@@ -66,7 +55,7 @@ def _webvtt_to_srt(content: str) -> str:
                 if end.count(":") == 1:
                     end = "00:" + end
                 srt_blocks.append(str(cue_index))
-                srt_blocks.append(f"{start } --> {end }")
+                srt_blocks.append(f"{start} --> {end}")
                 i += 1
                 while i < len(raw_lines):
                     text_line = raw_lines[i]
@@ -85,33 +74,19 @@ def _webvtt_to_srt(content: str) -> str:
 
 
 class VideoDownloader:
-    """Downloads videos, subtitles, and supplementary materials.
-
-    Args:
-        config: Application configuration (token, domain, quality, …).
-        session: A pre-authenticated :class:`requests.Session`.
-    """
-
     def __init__(self, config: Config, session: requests.Session) -> None:
         self.config = config
         self.session = session
 
     def _build_headers_content(self) -> str:
-        """Return the HTTP header block that ffmpeg needs for auth."""
         return (
-            f"Authorization: Bearer {self .config .token }\r\n"
-            f"Origin: {self .config .domain }\r\n"
-            f"Referer: {self .config .domain }/\r\n"
+            f"Authorization: Bearer {self.config.token}\r\n"
+            f"Origin: {self.config.domain}\r\n"
+            f"Referer: {self.config.domain}/\r\n"
         )
 
     @staticmethod
     def get_asset_download_url(asset_data: dict[str, Any] | None) -> str:
-        """Extract download URL from a non-video asset.
-
-        Udemy file-type assets store download URLs under
-        ``download_urls.File[].file``.  Falls back to the
-        top-level ``file`` field if present.
-        """
         if not asset_data:
             return ""
         download_urls = asset_data.get("download_urls") or {}
@@ -123,16 +98,6 @@ class VideoDownloader:
         return str(file_val) if file_val is not None else ""
 
     def get_quality_video_url(self, asset_data: dict[str, Any] | None) -> str:
-        """Select the best video URL from *asset_data*.
-
-        Tries the user's preferred quality first, then falls back to
-        progressively lower qualities (never higher).  Falls back to
-        the best available stream or HLS URL if no match is found.
-
-        Returns:
-            A direct or HLS URL string, or ``""`` when no video is
-            available.
-        """
         if not asset_data:
             return ""
 
@@ -162,11 +127,6 @@ class VideoDownloader:
         return ""
 
     def read_ffmpeg_output(self, proc: subprocess.Popen) -> Generator[str, None, None]:
-        """Yield lines from ffmpeg's stderr in a non-blocking fashion.
-
-        Uses ``select`` on POSIX and a background thread on Windows.
-        Each yielded line is already lowercased and stripped.
-        """
         if sys.platform == "win32":
             yield from self._read_ffmpeg_output_win32(proc)
             return
@@ -205,7 +165,6 @@ class VideoDownloader:
 
     @staticmethod
     def _read_ffmpeg_output_win32(proc: subprocess.Popen) -> Generator[str, None, None]:
-        """Windows-specific non-blocking reader for ffmpeg stderr."""
         import queue
         import threading
 
@@ -248,20 +207,6 @@ class VideoDownloader:
             yield buffer.strip().lower()
 
     def download_video(self, url: str, output_path: Path) -> subprocess.Popen:
-        """Spawn an ffmpeg process to download the video at *url*.
-
-        .. note::
-
-           The bearer token is passed via ffmpeg's ``-headers`` flag, which
-           means it is visible in ``/proc/<pid>/cmdline`` (and ``ps``).
-           ffmpeg does not support reading headers from a file, so there is
-           no simple way to avoid this.  The token lifetime is limited to
-           the download session.
-
-        Returns:
-            The running :class:`subprocess.Popen` instance (stderr is
-            captured for progress parsing).
-        """
         headers_content = self._build_headers_content()
 
         cmd = [
@@ -285,15 +230,10 @@ class VideoDownloader:
         )
 
     def wait_for_download(self, proc: subprocess.Popen, timeout: int = FFMPEG_TIMEOUT) -> int:
-        """Block until *proc* exits or *timeout* seconds elapse.
-
-        Kills the process on timeout.  Returns the exit code (``-1`` if
-        the code could not be determined).
-        """
         try:
             proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
-            logger.error(f"FFmpeg process timed out after {timeout }s, killing")
+            logger.error(f"FFmpeg process timed out after {timeout}s, killing")
             proc.kill()
             proc.wait(timeout=10)
         return proc.returncode if proc.returncode is not None else -1
@@ -304,13 +244,6 @@ class VideoDownloader:
         output_path: Path,
         is_interrupted: Callable | None = None,
     ) -> bool:
-        """Download a file asset via HTTP streaming.
-
-        Used for PDFs, presentations, audio files, and other non-video
-        primary lecture assets.  Retries without the ``Authorization``
-        header on 401/403, matching the behaviour of
-        :meth:`download_materials`.
-        """
         try:
             response = self.session.get(url, timeout=60, stream=True)
             if response.status_code in (401, 403):
@@ -322,7 +255,7 @@ class VideoDownloader:
             response.raise_for_status()
 
             with output_path.open("wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
                     if is_interrupted and is_interrupted():
                         f.close()
                         if output_path.exists():
@@ -333,23 +266,18 @@ class VideoDownloader:
 
             return output_path.exists() and output_path.stat().st_size > 0
         except (requests.RequestException, OSError) as e:
-            logger.error(f"Failed to download file asset: {e }")
+            logger.error(f"Failed to download file asset: {e}")
             if output_path.exists():
                 with contextlib.suppress(OSError):
                     output_path.unlink()
             return False
 
     def download_subtitles(self, course_id: int, lecture_id: int, output_path: Path) -> list[Path]:
-        """Download subtitle tracks for a lecture.
-
-        Converts WebVTT to SRT on-the-fly.  Subtitles are saved alongside
-        the video file as ``<stem>.<lang>.srt``.
-        """
         downloaded: list[Path] = []
         try:
             url = (
-                f"{self .config .domain }/api-2.0/courses/{course_id }"
-                f"/lectures/{lecture_id }/subtitles"
+                f"{self.config.domain}/api-2.0/courses/{course_id}"
+                f"/lectures/{lecture_id}/subtitles"
             )
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
@@ -359,7 +287,7 @@ class VideoDownloader:
                 lang = sanitize_filename(caption.get("language", "en"))
                 srt_url = caption.get("url")
                 if srt_url:
-                    srt_path = subtitles_dir / f"{output_path .stem }.{lang }.srt"
+                    srt_path = subtitles_dir / f"{output_path.stem}.{lang}.srt"
                     try:
                         sub_response = self.session.get(srt_url, timeout=30)
                         sub_response.raise_for_status()
@@ -368,11 +296,11 @@ class VideoDownloader:
                             content = _webvtt_to_srt(content)
                         srt_path.write_text(content, encoding="utf-8")
                         downloaded.append(srt_path)
-                        logger.info(f"Downloaded subtitle: {srt_path .name }")
+                        logger.info(f"Downloaded subtitle: {srt_path.name}")
                     except (requests.RequestException, OSError) as e:
-                        logger.warning(f"Failed to download subtitle {lang }: {e }")
+                        logger.warning(f"Failed to download subtitle {lang}: {e}")
         except (requests.RequestException, OSError, ValueError) as e:
-            logger.warning(f"Failed to fetch subtitles for lecture {lecture_id }: {e }")
+            logger.warning(f"Failed to fetch subtitles for lecture {lecture_id}: {e}")
         return downloaded
 
     def download_materials(
@@ -382,17 +310,11 @@ class VideoDownloader:
         output_path: Path,
         is_interrupted: Callable | None = None,
     ) -> list[Path]:
-        """Download supplementary materials (PDFs, ZIPs, …) for a lecture.
-
-        Materials are saved in a ``00-materials/`` sub-directory beside
-        the video.  If the server returns 401/403 on the file URL the
-        request is retried without the ``Authorization`` header.
-        """
         downloaded: list[Path] = []
         try:
             url = (
-                f"{self .config .domain }/api-2.0/courses/{course_id }"
-                f"/lectures/{lecture_id }/supplementary-assets"
+                f"{self.config.domain}/api-2.0/courses/{course_id}"
+                f"/lectures/{lecture_id}/supplementary-assets"
             )
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
@@ -421,24 +343,24 @@ class VideoDownloader:
                     mat_response.raise_for_status()
                     mat_path = materials_dir / filename
                     with mat_path.open("wb") as f:
-                        for chunk in mat_response.iter_content(chunk_size=8192):
+                        for chunk in mat_response.iter_content(chunk_size=CHUNK_SIZE):
                             if is_interrupted and is_interrupted():
                                 break
                             if chunk:
                                 f.write(chunk)
                     if is_interrupted and is_interrupted():
-                        logger.warning(f"Material download interrupted: {filename }")
+                        logger.warning(f"Material download interrupted: {filename}")
                         if mat_path.exists():
                             mat_path.unlink()
                     elif mat_path.exists() and mat_path.stat().st_size > 0:
                         downloaded.append(mat_path)
-                        logger.info(f"Downloaded material: {filename }")
+                        logger.info(f"Downloaded material: {filename}")
                     else:
-                        logger.warning(f"Material file empty: {filename }")
+                        logger.warning(f"Material file empty: {filename}")
                         if mat_path.exists():
                             mat_path.unlink()
                 except (requests.RequestException, OSError) as e:
-                    logger.warning(f"Failed to download material {filename }: {e }")
+                    logger.warning(f"Failed to download material {filename}: {e}")
         except (requests.RequestException, OSError, ValueError) as e:
-            logger.warning(f"Failed to fetch materials for lecture {lecture_id }: {e }")
+            logger.warning(f"Failed to fetch materials for lecture {lecture_id}: {e}")
         return downloaded

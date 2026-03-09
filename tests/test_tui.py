@@ -101,10 +101,7 @@ class TestRenderDashboard:
 
 
 class TestDrawHeader:
-    """Tests for draw_header method."""
-
     def test_draw_header_writes_title(self):
-        """Test that draw_header writes title with reverse attribute."""
         win = MockCursesWindow(height=24, width=80)
         with patch("udemy_dl.tui.curses") as mock_curses:
             mock_curses.color_pair.return_value = 0
@@ -116,16 +113,12 @@ class TestDrawHeader:
             tui.draw_header("TEST TITLE")
 
             assert len(win.written) == 1
-            # Verify title content is written
             texts = [w[2] for w in win.written]
             assert any("TEST TITLE" in t for t in texts)
 
 
 class TestDrawFooter:
-    """Tests for draw_footer method."""
-
     def test_draw_footer_writes_text(self):
-        """Test that draw_footer writes text at bottom of screen."""
         win = MockCursesWindow(height=24, width=80)
         with patch("udemy_dl.tui.curses") as mock_curses:
             mock_curses.color_pair.return_value = 0
@@ -137,16 +130,12 @@ class TestDrawFooter:
             tui.draw_footer("Test footer")
 
             assert len(win.written) == 1
-            # Verify footer text content is written
             texts = [w[2] for w in win.written]
             assert any("Test footer" in t for t in texts)
 
 
 class TestDrawProgressBar:
-    """Tests for draw_progress_bar method."""
-
     def test_progress_bar_zero_percent(self):
-        """Test progress bar with 0%."""
         win = MockCursesWindow(height=24, width=80)
         with patch("udemy_dl.tui.curses") as mock_curses:
             mock_curses.color_pair.return_value = 0
@@ -160,7 +149,6 @@ class TestDrawProgressBar:
             assert len(win.written) == 3
 
     def test_progress_bar_full_percent(self):
-        """Test progress bar with 100%."""
         win = MockCursesWindow(height=24, width=80)
         with patch("udemy_dl.tui.curses") as mock_curses:
             mock_curses.color_pair.return_value = 0
@@ -174,7 +162,6 @@ class TestDrawProgressBar:
             assert len(win.written) == 3
 
     def test_progress_bar_negative_clamped(self):
-        """Test progress bar with negative value (should clamp to 0)."""
         win = MockCursesWindow(height=24, width=80)
         with patch("udemy_dl.tui.curses") as mock_curses:
             mock_curses.color_pair.return_value = 0
@@ -185,11 +172,9 @@ class TestDrawProgressBar:
             tui.stdscr = win
             tui.draw_progress_bar(0, 0, 40, -10.0)
 
-            # Should still render (clamped to 0)
             assert len(win.written) >= 1
 
     def test_progress_bar_exceeds_100_clamped(self):
-        """Test progress bar > 100 (should clamp to 100)."""
         win = MockCursesWindow(height=24, width=80)
         with patch("udemy_dl.tui.curses") as mock_curses:
             mock_curses.color_pair.return_value = 0
@@ -200,11 +185,9 @@ class TestDrawProgressBar:
             tui.stdscr = win
             tui.draw_progress_bar(0, 0, 40, 150.0)
 
-            # Should still render (clamped to 100)
             assert len(win.written) >= 1
 
     def test_progress_bar_too_narrow(self):
-        """Test progress bar with width too narrow."""
         win = MockCursesWindow(height=24, width=80)
         with patch("udemy_dl.tui.curses") as mock_curses:
             mock_curses.color_pair.return_value = 0
@@ -213,8 +196,6 @@ class TestDrawProgressBar:
 
             tui = TUI.__new__(TUI)
             tui.stdscr = win
-            # Width too narrow (min is 5 for bar)
             tui.draw_progress_bar(0, 0, 3, 50.0)
 
-            # Should return early without writing
             assert len(win.written) == 0

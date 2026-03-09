@@ -105,12 +105,12 @@ class TUI:
             self.stdscr.refresh()
             return
 
-        self.draw_header(f"DOWNLOADING COURSE [{course_index }/{total_courses }]")
+        self.draw_header(f"DOWNLOADING COURSE [{course_index}/{total_courses}]")
 
         self.safe_addstr(
             2,
             2,
-            f"Course : {state .course_title }",
+            f"Course : {state.course_title}",
             COLOR_DEFAULT,
             curses.A_BOLD,
             width - 4,
@@ -123,7 +123,7 @@ class TUI:
             width - 4,
             overall_pct,
             "Total  :",
-            f"{overall_pct :3.0f}% [{state .done_vids :03d}/{state .total_vids :03d}]",
+            f"{overall_pct :3.0f}% [{state.done_vids :03d}/{state.total_vids :03d}]",
             COLOR_SUCCESS,
         )
 
@@ -261,11 +261,11 @@ class TUI:
 
         curses.echo()
         curses.curs_set(1)
+        max_input_width = width - len(prompt) - 1
+        max_input_width = max(1, max_input_width)  # Ensure positive width
         try:
             new_val: object = (
-                self.stdscr.getstr(height - 1, len(prompt), width - len(prompt) - 1)
-                .decode()
-                .strip()
+                self.stdscr.getstr(height - 1, len(prompt), max_input_width).decode().strip()
             )
         except (curses.error, UnicodeDecodeError):
             new_val = ""

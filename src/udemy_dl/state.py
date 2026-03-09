@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from .utils import CONFIG_DIR, get_logger
+from .utils import CONFIG_DIR, _ensure_config_dir, get_logger
 
 logger = get_logger(__name__)
 STATE_FILE = str(CONFIG_DIR / "download_state.json")
@@ -58,25 +58,30 @@ class AppState:
                 data = json.loads(state_path.read_text(encoding="utf-8"))
                 return DownloadState.from_dict(data)
             except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
-                logger.error(f"Failed to load download state: {e }")
+                logger.error(f"Failed to load download state: {e}")
                 return None
         return None
 
     def save_state(self) -> None:
         if self.current_course_state is None:
             return
+        _ensure_config_dir()
         state_path = Path(STATE_FILE)
         self.current_course_state.last_updated = datetime.now().isoformat()
         tmp_path: str | None = None
         try:
             fd, tmp_path = tempfile.mkstemp(dir=state_path.parent, suffix=".tmp")
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(self.current_course_state.to_dict(), f, indent=4)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self.current_course_state.to_dict(), f, indent=4)
+            except Exception:
+                os.close(fd)
+                raise
+            Path(tmp_path).chmod(0o600)
             Path(tmp_path).replace(state_path)
-            state_path.chmod(0o600)
             logger.debug("Download state saved")
         except OSError as e:
-            logger.error(f"Failed to save download state: {e }")
+            logger.error(f"Failed to save download state: {e}")
             if tmp_path:
                 with suppress(OSError):
                     Path(tmp_path).unlink()
@@ -88,5 +93,5 @@ class AppState:
                 state_path.unlink()
                 logger.debug("Download state cleared")
             except OSError as e:
-                logger.error(f"Failed to clear download state: {e }")
+                logger.error(f"Failed to clear download state: {e}")
         self.current_course_state = None

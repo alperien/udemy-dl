@@ -10,10 +10,12 @@ from contextlib import suppress
 from pathlib import Path
 
 CONFIG_DIR = Path(os.getenv("UDEMY_DL_CONFIG_DIR", Path.home() / ".config" / "udemy-dl"))
-with suppress(OSError):
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-
 LOG_FILE = str(CONFIG_DIR / "downloader.log")
+
+
+def _ensure_config_dir() -> None:
+    with suppress(OSError):
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 _WINDOWS_RESERVED = frozenset(
@@ -22,12 +24,13 @@ _WINDOWS_RESERVED = frozenset(
         "PRN",
         "AUX",
         "NUL",
-        *(f"COM{i }" for i in range(1, 10)),
-        *(f"LPT{i }" for i in range(1, 10)),
+        *(f"COM{i}" for i in range(1, 10)),
+        *(f"LPT{i}" for i in range(1, 10)),
     }
 )
 
 MAX_FILENAME_LENGTH = 200
+FFPROBE_TIMEOUT = 30
 
 
 @functools.lru_cache(maxsize=1)
@@ -69,7 +72,7 @@ def sanitize_filename(name: str) -> str:
 
     stem = sanitized.split(".")[0].upper()
     if stem in _WINDOWS_RESERVED:
-        sanitized = f"_{sanitized }"
+        sanitized = f"_{sanitized}"
 
     if len(sanitized) > MAX_FILENAME_LENGTH:
         sanitized = sanitized[:MAX_FILENAME_LENGTH]
@@ -117,7 +120,7 @@ def validate_video(path: Path) -> ValidationResult:
             ],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=FFPROBE_TIMEOUT,
         )
         duration = float(result.stdout.strip())
         return ValidationResult.VALID if duration > 0 else ValidationResult.INVALID

@@ -127,10 +127,7 @@ class TestHeadlessValidation:
 
 
 class TestHeadlessReporter:
-    """Tests for _HeadlessReporter class."""
-
     def test_on_log_prints_message(self):
-        """Test that on_log prints to stdout."""
         from udemy_dl.main import _HeadlessReporter
 
         reporter = _HeadlessReporter()
@@ -140,25 +137,21 @@ class TestHeadlessReporter:
             mock_print.assert_called_once_with("  test message")
 
     def test_on_progress_does_nothing(self):
-        """Test that on_progress is a no-op."""
         from udemy_dl.main import _HeadlessReporter
         from udemy_dl.models import DownloadProgress
 
         reporter = _HeadlessReporter()
         progress = DownloadProgress(total_vids=10)
 
-        # Should not raise
         reporter.on_progress(progress, 1, 3)
 
     def test_is_interrupted_defaults_false(self):
-        """Test that is_interrupted defaults to False."""
         from udemy_dl.main import _HeadlessReporter
 
         reporter = _HeadlessReporter()
         assert reporter.is_interrupted() is False
 
     def test_is_interrupted_returns_true_when_set(self):
-        """Test that is_interrupted returns True when internal flag is set."""
         from udemy_dl.main import _HeadlessReporter
 
         reporter = _HeadlessReporter()
@@ -167,10 +160,7 @@ class TestHeadlessReporter:
 
 
 class TestRunHeadless:
-    """Additional tests for _run_headless function."""
-
     def test_headless_fetches_courses(self):
-        """Test that headless mode fetches courses."""
         args = MagicMock()
         args.headless = True
         args.course_id = None
@@ -189,11 +179,11 @@ class TestRunHeadless:
         with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
             "udemy_dl.main.setup_logging"
         ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.main.UdemyAPI", return_value=mock_api
+            "udemy_dl.api.UdemyAPI", return_value=mock_api
         ), patch(
-            "udemy_dl.main.VideoDownloader", return_value=mock_downloader
+            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
         ), patch(
-            "udemy_dl.main.DownloadPipeline"
+            "udemy_dl.pipeline.DownloadPipeline"
         ):
             from udemy_dl.main import _run_headless
 
@@ -202,7 +192,6 @@ class TestRunHeadless:
         mock_api.fetch_owned_courses.assert_called_once()
 
     def test_headless_prints_course_count(self):
-        """Test that headless mode prints number of courses found."""
         args = MagicMock()
         args.headless = True
         args.course_id = None
@@ -221,11 +210,11 @@ class TestRunHeadless:
         with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
             "udemy_dl.main.setup_logging"
         ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.main.UdemyAPI", return_value=mock_api
+            "udemy_dl.api.UdemyAPI", return_value=mock_api
         ), patch(
-            "udemy_dl.main.VideoDownloader", return_value=mock_downloader
+            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
         ), patch(
-            "udemy_dl.main.DownloadPipeline"
+            "udemy_dl.pipeline.DownloadPipeline"
         ), patch(
             "builtins.print"
         ) as mock_print:
@@ -233,11 +222,9 @@ class TestRunHeadless:
 
             _run_headless(args)
 
-        # Should print found courses
         assert any("Found" in str(c) and "course" in str(c) for c in mock_print.call_args_list)
 
     def test_headless_exits_when_no_courses(self):
-        """Test that headless mode exits when no courses found."""
         args = MagicMock()
         args.headless = True
         args.course_id = None
@@ -256,11 +243,11 @@ class TestRunHeadless:
         with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
             "udemy_dl.main.setup_logging"
         ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.main.UdemyAPI", return_value=mock_api
+            "udemy_dl.api.UdemyAPI", return_value=mock_api
         ), patch(
-            "udemy_dl.main.VideoDownloader", return_value=mock_downloader
+            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
         ), patch(
-            "udemy_dl.main.DownloadPipeline"
+            "udemy_dl.pipeline.DownloadPipeline"
         ), pytest.raises(
             SystemExit
         ) as exc_info:
@@ -271,7 +258,6 @@ class TestRunHeadless:
         assert exc_info.value.code == 1
 
     def test_headless_uses_specific_course_id(self):
-        """Test that headless mode uses specific course ID."""
         args = MagicMock()
         args.headless = False
         args.course_id = 12345
@@ -288,11 +274,11 @@ class TestRunHeadless:
         with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
             "udemy_dl.main.setup_logging"
         ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.main.UdemyAPI", return_value=mock_api
+            "udemy_dl.api.UdemyAPI", return_value=mock_api
         ), patch(
-            "udemy_dl.main.VideoDownloader", return_value=mock_downloader
+            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
         ), patch(
-            "udemy_dl.main.DownloadPipeline"
+            "udemy_dl.pipeline.DownloadPipeline"
         ), patch(
             "builtins.print"
         ) as mock_print:
@@ -300,13 +286,10 @@ class TestRunHeadless:
 
             _run_headless(args)
 
-        # Should NOT call fetch_owned_courses when course_id is provided
         mock_api.fetch_owned_courses.assert_not_called()
-        # Should print "Fetching owned courses" NOT printed
         assert not any("Fetching" in str(c) for c in mock_print.call_args_list)
 
     def test_headless_keyboard_interrupt(self):
-        """Test that headless handles keyboard interrupt."""
         args = MagicMock()
         args.headless = True
         args.course_id = None
@@ -326,11 +309,11 @@ class TestRunHeadless:
         with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
             "udemy_dl.main.setup_logging"
         ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.main.UdemyAPI", return_value=mock_api
+            "udemy_dl.api.UdemyAPI", return_value=mock_api
         ), patch(
-            "udemy_dl.main.VideoDownloader", return_value=mock_downloader
+            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
         ), patch(
-            "udemy_dl.main.DownloadPipeline", return_value=mock_pipeline
+            "udemy_dl.pipeline.DownloadPipeline", return_value=mock_pipeline
         ), patch(
             "udemy_dl.main.AppState"
         ), patch(
@@ -342,28 +325,21 @@ class TestRunHeadless:
 
             _run_headless(args)
 
-        # Should exit with code 130 on interrupt
         assert exc_info.value.code == 130
-        # Should print interrupted message
         assert any("Interrupted" in str(c) for c in mock_print.call_args_list)
 
 
 class TestMainFunction:
-    """Tests for the main function entry points."""
-
     def test_main_handles_keyboard_interrupt(self):
-        """Test that _main handles KeyboardInterrupt gracefully."""
-        with patch("udemy_dl.main.setup_logging"), patch("udemy_dl.main.Application") as mock_app:
+        with patch("udemy_dl.main.setup_logging"), patch("udemy_dl.app.Application") as mock_app:
             mock_app.side_effect = KeyboardInterrupt()
 
             from udemy_dl.main import _main
 
-            # Should not raise
             _main(MagicMock())
 
     def test_main_handles_exception(self):
-        """Test that _main handles unhandled exceptions."""
-        with patch("udemy_dl.main.setup_logging"), patch("udemy_dl.main.Application") as mock_app:
+        with patch("udemy_dl.main.setup_logging"), patch("udemy_dl.app.Application") as mock_app:
             mock_app.side_effect = ValueError("test error")
 
             with patch("sys.exit") as mock_exit:

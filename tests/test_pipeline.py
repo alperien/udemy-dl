@@ -91,13 +91,11 @@ class TestBuildDownloadQueue:
 
 class TestDownloadLecture:
     def test_skips_completed_lecture_when_file_exists(self):
-        """Test that lecture is skipped when in completed set AND file exists on disk."""
         pipeline, api, dl, state, rep = _make_pipeline()
         state.current_course_state = MagicMock()
         dl.download_subtitles.return_value = []
         dl.download_materials.return_value = []
 
-        # Create a temp file that exists
         import tempfile
 
         from udemy_dl.models import Lecture
@@ -118,7 +116,6 @@ class TestDownloadLecture:
             temp_path.unlink()
 
     def test_re_downloads_missing_file_when_in_completed_state(self):
-        """Test that lecture is NOT skipped when in completed state but file is missing."""
         pipeline, api, dl, state, rep = _make_pipeline()
         state.current_course_state = MagicMock()
         dl.download_subtitles.return_value = []
@@ -126,7 +123,6 @@ class TestDownloadLecture:
 
         from udemy_dl.models import Lecture
 
-        # File does NOT exist (path to non-existent file)
         lecture = Lecture(
             id=42, title="Done", url="http://x", file_path=Path("/tmp/nonexistent_test_file.mp4")
         )
@@ -135,7 +131,6 @@ class TestDownloadLecture:
 
         pipeline._download_lecture(lecture, course, progress, 1, 1, {42})
 
-        # The key assertion: should NOT skip with CACHE message when file doesn't exist
         cache_messages = [log for log in rep.logs if "CACHE" in log]
         assert (
             len(cache_messages) == 0
@@ -159,7 +154,6 @@ class TestDownloadLecture:
             pipeline._download_lecture(lecture, course, progress, 1, 1, set())
 
         assert progress.done_vids == 1
-        # When Video type has no URL, it falls through to "No downloadable asset"
         assert any("No downloadable asset" in log for log in rep.logs)
 
     def test_no_downloadable_asset_logs_info(self):
