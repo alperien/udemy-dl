@@ -109,8 +109,9 @@ class TestConfigSaveLoad:
             "UDEMY_DOWNLOAD_SUBTITLES": "false",
             "UDEMY_DOWNLOAD_MATERIALS": "true",
         }
-        with patch.dict(os.environ, env_vars), patch(
-            "udemy_dl.config.CONFIG_FILE", str(tmp_path / "nonexistent.json")
+        with (
+            patch.dict(os.environ, env_vars),
+            patch("udemy_dl.config.CONFIG_FILE", str(tmp_path / "nonexistent.json")),
         ):
             cfg = load_config()
         assert cfg.token == "envtoken12345"

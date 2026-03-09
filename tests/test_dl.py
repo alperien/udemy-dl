@@ -207,8 +207,9 @@ class TestDownloadFile:
         success_resp.iter_content = MagicMock(return_value=[b"ok"])
         success_resp.raise_for_status = MagicMock()
 
-        with patch.object(dl.session, "get", return_value=forbidden_resp), patch(
-            "udemy_dl.dl.requests.get", return_value=success_resp
+        with (
+            patch.object(dl.session, "get", return_value=forbidden_resp),
+            patch("udemy_dl.dl.requests.get", return_value=success_resp),
         ):
             result = dl.download_file("http://example.com/f.pdf", out)
 

@@ -199,9 +199,11 @@ class TestDownloadLecture:
         course = Course(id=1, title="Test")
         progress = DownloadProgress(total_vids=1)
 
-        with patch.object(Path, "mkdir"), patch.object(
-            Path, "exists", return_value=False
-        ), patch.object(state, "save_state"):
+        with (
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=False),
+            patch.object(state, "save_state"),
+        ):
             pipeline._download_lecture(lecture, course, progress, 1, 1, set())
 
         dl.download_file.assert_called_once()
@@ -229,9 +231,12 @@ class TestDownloadLecture:
         mock_stat = MagicMock()
         mock_stat.st_size = 50000
 
-        with patch.object(Path, "mkdir"), patch.object(
-            Path, "exists", return_value=True
-        ), patch.object(Path, "stat", return_value=mock_stat), patch.object(state, "save_state"):
+        with (
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "stat", return_value=mock_stat),
+            patch.object(state, "save_state"),
+        ):
             pipeline._download_lecture(lecture, course, progress, 1, 1, set())
 
         dl.download_file.assert_not_called()
@@ -257,9 +262,11 @@ class TestDownloadLecture:
         course = Course(id=1, title="Test")
         progress = DownloadProgress(total_vids=1)
 
-        with patch.object(Path, "mkdir"), patch.object(
-            Path, "write_text"
-        ) as mock_write, patch.object(state, "save_state"):
+        with (
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "write_text") as mock_write,
+            patch.object(state, "save_state"),
+        ):
             pipeline._download_lecture(lecture, course, progress, 1, 1, set())
 
         mock_write.assert_called_once_with("<p>Hello students</p>", encoding="utf-8")

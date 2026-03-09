@@ -72,18 +72,20 @@ class TestGetVersion:
 
 class TestRunDispatch:
     def test_headless_dispatches_to_run_headless(self):
-        with patch.object(sys, "argv", ["udemy-dl", "--headless"]), patch(
-            "udemy_dl.main._run_headless"
-        ) as mock_headless:
+        with (
+            patch.object(sys, "argv", ["udemy-dl", "--headless"]),
+            patch("udemy_dl.main._run_headless") as mock_headless,
+        ):
             from udemy_dl.main import run
 
             run()
             mock_headless.assert_called_once()
 
     def test_course_id_implies_headless(self):
-        with patch.object(sys, "argv", ["udemy-dl", "--course-id", "123"]), patch(
-            "udemy_dl.main._run_headless"
-        ) as mock_headless:
+        with (
+            patch.object(sys, "argv", ["udemy-dl", "--course-id", "123"]),
+            patch("udemy_dl.main._run_headless") as mock_headless,
+        ):
             from udemy_dl.main import run
 
             run()
@@ -117,9 +119,12 @@ class TestHeadlessValidation:
 
             args = _parse_args()
 
-        with patch("udemy_dl.config.load_config") as mock_load, patch(
-            "udemy_dl.main.setup_logging"
-        ), patch("shutil.which", return_value=None), pytest.raises(SystemExit):
+        with (
+            patch("udemy_dl.config.load_config") as mock_load,
+            patch("udemy_dl.main.setup_logging"),
+            patch("shutil.which", return_value=None),
+            pytest.raises(SystemExit),
+        ):
             mock_load.return_value = Config(token="t" * 20, client_id="c" * 10)
             from udemy_dl.main import _run_headless
 
@@ -176,14 +181,13 @@ class TestRunHeadless:
 
         mock_downloader = MagicMock()
 
-        with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
-            "udemy_dl.main.setup_logging"
-        ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.api.UdemyAPI", return_value=mock_api
-        ), patch(
-            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
-        ), patch(
-            "udemy_dl.pipeline.DownloadPipeline"
+        with (
+            patch("udemy_dl.config.load_config", return_value=mock_config),
+            patch("udemy_dl.main.setup_logging"),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch("udemy_dl.api.UdemyAPI", return_value=mock_api),
+            patch("udemy_dl.dl.VideoDownloader", return_value=mock_downloader),
+            patch("udemy_dl.pipeline.DownloadPipeline"),
         ):
             from udemy_dl.main import _run_headless
 
@@ -207,17 +211,15 @@ class TestRunHeadless:
 
         mock_downloader = MagicMock()
 
-        with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
-            "udemy_dl.main.setup_logging"
-        ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.api.UdemyAPI", return_value=mock_api
-        ), patch(
-            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
-        ), patch(
-            "udemy_dl.pipeline.DownloadPipeline"
-        ), patch(
-            "builtins.print"
-        ) as mock_print:
+        with (
+            patch("udemy_dl.config.load_config", return_value=mock_config),
+            patch("udemy_dl.main.setup_logging"),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch("udemy_dl.api.UdemyAPI", return_value=mock_api),
+            patch("udemy_dl.dl.VideoDownloader", return_value=mock_downloader),
+            patch("udemy_dl.pipeline.DownloadPipeline"),
+            patch("builtins.print") as mock_print,
+        ):
             from udemy_dl.main import _run_headless
 
             _run_headless(args)
@@ -240,17 +242,15 @@ class TestRunHeadless:
 
         mock_downloader = MagicMock()
 
-        with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
-            "udemy_dl.main.setup_logging"
-        ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.api.UdemyAPI", return_value=mock_api
-        ), patch(
-            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
-        ), patch(
-            "udemy_dl.pipeline.DownloadPipeline"
-        ), pytest.raises(
-            SystemExit
-        ) as exc_info:
+        with (
+            patch("udemy_dl.config.load_config", return_value=mock_config),
+            patch("udemy_dl.main.setup_logging"),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch("udemy_dl.api.UdemyAPI", return_value=mock_api),
+            patch("udemy_dl.dl.VideoDownloader", return_value=mock_downloader),
+            patch("udemy_dl.pipeline.DownloadPipeline"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             from udemy_dl.main import _run_headless
 
             _run_headless(args)
@@ -271,17 +271,15 @@ class TestRunHeadless:
         mock_api = MagicMock()
         mock_downloader = MagicMock()
 
-        with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
-            "udemy_dl.main.setup_logging"
-        ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.api.UdemyAPI", return_value=mock_api
-        ), patch(
-            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
-        ), patch(
-            "udemy_dl.pipeline.DownloadPipeline"
-        ), patch(
-            "builtins.print"
-        ) as mock_print:
+        with (
+            patch("udemy_dl.config.load_config", return_value=mock_config),
+            patch("udemy_dl.main.setup_logging"),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch("udemy_dl.api.UdemyAPI", return_value=mock_api),
+            patch("udemy_dl.dl.VideoDownloader", return_value=mock_downloader),
+            patch("udemy_dl.pipeline.DownloadPipeline"),
+            patch("builtins.print") as mock_print,
+        ):
             from udemy_dl.main import _run_headless
 
             _run_headless(args)
@@ -306,21 +304,17 @@ class TestRunHeadless:
         mock_pipeline = MagicMock()
         mock_pipeline.download_courses.side_effect = KeyboardInterrupt()
 
-        with patch("udemy_dl.config.load_config", return_value=mock_config), patch(
-            "udemy_dl.main.setup_logging"
-        ), patch("shutil.which", return_value="/usr/bin/ffmpeg"), patch(
-            "udemy_dl.api.UdemyAPI", return_value=mock_api
-        ), patch(
-            "udemy_dl.dl.VideoDownloader", return_value=mock_downloader
-        ), patch(
-            "udemy_dl.pipeline.DownloadPipeline", return_value=mock_pipeline
-        ), patch(
-            "udemy_dl.main.AppState"
-        ), patch(
-            "builtins.print"
-        ) as mock_print, pytest.raises(
-            SystemExit
-        ) as exc_info:
+        with (
+            patch("udemy_dl.config.load_config", return_value=mock_config),
+            patch("udemy_dl.main.setup_logging"),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch("udemy_dl.api.UdemyAPI", return_value=mock_api),
+            patch("udemy_dl.dl.VideoDownloader", return_value=mock_downloader),
+            patch("udemy_dl.pipeline.DownloadPipeline", return_value=mock_pipeline),
+            patch("udemy_dl.main.AppState"),
+            patch("builtins.print") as mock_print,
+            pytest.raises(SystemExit) as exc_info,
+        ):
             from udemy_dl.main import _run_headless
 
             _run_headless(args)

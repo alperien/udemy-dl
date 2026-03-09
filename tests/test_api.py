@@ -56,8 +56,9 @@ class TestFetchOwnedCourses:
             "next": None,
         }
         responses = [_mock_response(page1), _mock_response(page2)]
-        with patch.object(api.session, "get", side_effect=responses), patch(
-            "udemy_dl.api.time.sleep"
+        with (
+            patch.object(api.session, "get", side_effect=responses),
+            patch("udemy_dl.api.time.sleep"),
         ):
             courses = api.fetch_owned_courses()
         assert len(courses) == 2
@@ -89,8 +90,9 @@ class TestFetchOwnedCourses:
             requests.exceptions.Timeout("timed out"),
             requests.exceptions.Timeout("timed out"),
         ]
-        with patch.object(api.session, "get", side_effect=responses), patch(
-            "udemy_dl.api.time.sleep"
+        with (
+            patch.object(api.session, "get", side_effect=responses),
+            patch("udemy_dl.api.time.sleep"),
         ):
             courses = api.fetch_owned_courses()
         assert len(courses) == 1
@@ -105,20 +107,25 @@ class TestRetryLogic:
             requests.exceptions.Timeout("timeout"),
             success_resp,
         ]
-        with patch.object(api.session, "get", side_effect=side_effects) as mock_get, patch(
-            "udemy_dl.api.time.sleep"
-        ) as mock_sleep:
+        with (
+            patch.object(api.session, "get", side_effect=side_effects) as mock_get,
+            patch("udemy_dl.api.time.sleep") as mock_sleep,
+        ):
             api.fetch_owned_courses()
         assert mock_get.call_count == 3
         assert mock_sleep.call_count == 2
 
     def test_raises_api_error_after_max_retries(self):
         api = _make_api()
-        with patch.object(
-            api.session,
-            "get",
-            side_effect=requests.exceptions.Timeout("always timeout"),
-        ), patch("udemy_dl.api.time.sleep"), pytest.raises(APIError):
+        with (
+            patch.object(
+                api.session,
+                "get",
+                side_effect=requests.exceptions.Timeout("always timeout"),
+            ),
+            patch("udemy_dl.api.time.sleep"),
+            pytest.raises(APIError),
+        ):
             api._request_with_retry("https://example.com")
 
 
@@ -138,12 +145,14 @@ class TestGetCourseCurriculum:
 
     def test_raises_curriculum_fetch_error_on_failure(self):
         api = _make_api()
-        with patch.object(
-            api.session,
-            "get",
-            side_effect=requests.exceptions.Timeout("timeout"),
-        ), patch("udemy_dl.api.time.sleep"), pytest.raises(
-            CurriculumFetchError, match="Failed to fetch complete curriculum"
+        with (
+            patch.object(
+                api.session,
+                "get",
+                side_effect=requests.exceptions.Timeout("timeout"),
+            ),
+            patch("udemy_dl.api.time.sleep"),
+            pytest.raises(CurriculumFetchError, match="Failed to fetch complete curriculum"),
         ):
             api.get_course_curriculum(12345)
 

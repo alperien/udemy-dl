@@ -61,9 +61,11 @@ class TestApplication:
         mock_stdscr = MagicMock()
         mock_tui = MagicMock()
 
-        with patch("udemy_dl.app.TUI", return_value=mock_tui), patch(
-            "udemy_dl.app.load_config"
-        ) as mock_config, patch("udemy_dl.app.AppState") as mock_state:
+        with (
+            patch("udemy_dl.app.TUI", return_value=mock_tui),
+            patch("udemy_dl.app.load_config") as mock_config,
+            patch("udemy_dl.app.AppState") as mock_state,
+        ):
             mock_config.return_value = MagicMock()
             app = Application(mock_stdscr)
 
@@ -76,9 +78,12 @@ class TestApplication:
         mock_stdscr = MagicMock()
         mock_tui = MagicMock()
 
-        with patch("udemy_dl.app.TUI", return_value=mock_tui), patch(
-            "udemy_dl.app.load_config"
-        ) as mock_config, patch("udemy_dl.app.AppState"), patch("signal.signal") as mock_signal:
+        with (
+            patch("udemy_dl.app.TUI", return_value=mock_tui),
+            patch("udemy_dl.app.load_config") as mock_config,
+            patch("udemy_dl.app.AppState"),
+            patch("signal.signal") as mock_signal,
+        ):
             mock_config.return_value = MagicMock()
             app = Application(mock_stdscr)
             app._setup_signal_handlers()
@@ -92,10 +97,12 @@ class TestApplication:
         mock_stdscr = MagicMock()
         mock_tui = MagicMock()
 
-        with patch("udemy_dl.app.curses.curs_set"), patch(
-            "udemy_dl.app.TUI", return_value=mock_tui
-        ), patch("udemy_dl.app.load_config") as mock_config, patch("udemy_dl.app.AppState"), patch(
-            "shutil.which", return_value=None
+        with (
+            patch("udemy_dl.app.curses.curs_set"),
+            patch("udemy_dl.app.TUI", return_value=mock_tui),
+            patch("udemy_dl.app.load_config") as mock_config,
+            patch("udemy_dl.app.AppState"),
+            patch("shutil.which", return_value=None),
         ):
             mock_config.return_value = MagicMock()
             app = Application(mock_stdscr)
@@ -108,10 +115,12 @@ class TestApplication:
         mock_tui = MagicMock()
         mock_tui.show_legal_warning.return_value = False
 
-        with patch("udemy_dl.app.curses.curs_set"), patch(
-            "udemy_dl.app.TUI", return_value=mock_tui
-        ), patch("udemy_dl.app.load_config") as mock_config, patch("udemy_dl.app.AppState"), patch(
-            "shutil.which", return_value="/usr/bin/ffmpeg"
+        with (
+            patch("udemy_dl.app.curses.curs_set"),
+            patch("udemy_dl.app.TUI", return_value=mock_tui),
+            patch("udemy_dl.app.load_config") as mock_config,
+            patch("udemy_dl.app.AppState"),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
         ):
             mock_config.return_value = MagicMock()
             mock_config.return_value.validate.return_value = (True, None)
@@ -125,10 +134,12 @@ class TestApplication:
         mock_tui = MagicMock()
         mock_tui.show_legal_warning.return_value = True
 
-        with patch("udemy_dl.app.curses.curs_set"), patch(
-            "udemy_dl.app.TUI", return_value=mock_tui
-        ), patch("udemy_dl.app.load_config") as mock_config, patch("udemy_dl.app.AppState"), patch(
-            "shutil.which", return_value="/usr/bin/ffmpeg"
+        with (
+            patch("udemy_dl.app.curses.curs_set"),
+            patch("udemy_dl.app.TUI", return_value=mock_tui),
+            patch("udemy_dl.app.load_config") as mock_config,
+            patch("udemy_dl.app.AppState"),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
         ):
             mock_cfg = MagicMock()
             mock_cfg.validate.side_effect = [(False, "error"), (False, "error")]
@@ -147,14 +158,13 @@ class TestApplication:
 
         mock_state = MagicMock()
 
-        with patch("udemy_dl.app.curses.curs_set"), patch(
-            "udemy_dl.app.TUI", return_value=mock_tui
-        ), patch("udemy_dl.app.load_config") as mock_config, patch(
-            "udemy_dl.app.AppState", return_value=mock_state
-        ), patch(
-            "shutil.which", return_value="/usr/bin/ffmpeg"
-        ), patch.object(
-            Application, "_run_download_session"
+        with (
+            patch("udemy_dl.app.curses.curs_set"),
+            patch("udemy_dl.app.TUI", return_value=mock_tui),
+            patch("udemy_dl.app.load_config") as mock_config,
+            patch("udemy_dl.app.AppState", return_value=mock_state),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch.object(Application, "_run_download_session"),
         ):
             mock_cfg = MagicMock()
             mock_cfg.validate.return_value = (True, None)
@@ -170,13 +180,16 @@ class TestApplicationDownloadSession:
     def test_session_fails_on_api_error(self):
         mock_stdscr = MagicMock()
         mock_tui = MagicMock()
+        mock_tui.show_legal_warning.return_value = True
+        mock_tui.main_menu.return_value = True
 
-        with patch("udemy_dl.app.curses.curs_set"), patch(
-            "udemy_dl.app.TUI", return_value=mock_tui
-        ), patch("udemy_dl.app.load_config") as mock_config, patch("udemy_dl.app.AppState"), patch(
-            "shutil.which", return_value="/usr/bin/ffmpeg"
-        ), patch(
-            "udemy_dl.app.UdemyAPI", side_effect=OSError("Network error")
+        with (
+            patch("udemy_dl.app.curses.curs_set"),
+            patch("udemy_dl.app.TUI", return_value=mock_tui),
+            patch("udemy_dl.app.load_config") as mock_config,
+            patch("udemy_dl.app.AppState"),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch("udemy_dl.app.UdemyAPI", side_effect=OSError("Network error")),
         ):
             mock_cfg = MagicMock()
             mock_cfg.validate.return_value = (True, None)
@@ -195,16 +208,14 @@ class TestApplicationDownloadSession:
 
         mock_state = MagicMock()
 
-        with patch("udemy_dl.app.curses.curs_set"), patch(
-            "udemy_dl.app.TUI", return_value=mock_tui
-        ), patch("udemy_dl.app.load_config") as mock_config, patch(
-            "udemy_dl.app.AppState", return_value=mock_state
-        ), patch(
-            "shutil.which", return_value="/usr/bin/ffmpeg"
-        ), patch(
-            "udemy_dl.app.UdemyAPI"
-        ) as mock_api, patch.object(
-            Application, "_run_download_session"
+        with (
+            patch("udemy_dl.app.curses.curs_set"),
+            patch("udemy_dl.app.TUI", return_value=mock_tui),
+            patch("udemy_dl.app.load_config") as mock_config,
+            patch("udemy_dl.app.AppState", return_value=mock_state),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch("udemy_dl.app.UdemyAPI") as mock_api,
+            patch.object(Application, "_run_download_session"),
         ):
             mock_cfg = MagicMock()
             mock_cfg.validate.return_value = (True, None)
@@ -227,16 +238,14 @@ class TestApplicationDownloadSession:
 
         mock_state = MagicMock()
 
-        with patch("udemy_dl.app.curses.curs_set"), patch(
-            "udemy_dl.app.TUI", return_value=mock_tui
-        ), patch("udemy_dl.app.load_config") as mock_config, patch(
-            "udemy_dl.app.AppState", return_value=mock_state
-        ), patch(
-            "shutil.which", return_value="/usr/bin/ffmpeg"
-        ), patch(
-            "udemy_dl.app.UdemyAPI"
-        ) as mock_api, patch.object(
-            Application, "_run_download_session"
+        with (
+            patch("udemy_dl.app.curses.curs_set"),
+            patch("udemy_dl.app.TUI", return_value=mock_tui),
+            patch("udemy_dl.app.load_config") as mock_config,
+            patch("udemy_dl.app.AppState", return_value=mock_state),
+            patch("shutil.which", return_value="/usr/bin/ffmpeg"),
+            patch("udemy_dl.app.UdemyAPI") as mock_api,
+            patch.object(Application, "_run_download_session"),
         ):
             mock_cfg = MagicMock()
             mock_cfg.validate.return_value = (True, None)
