@@ -89,7 +89,6 @@ class DownloadPipeline:
         completed_lectures: set[int] = set()
         if saved_state and saved_state.course_id == course.id:
             all_completed = set(saved_state.completed_lectures)
-            # Filter to only include lectures where file actually exists
             completed_lectures = {
                 lec.id
                 for lec in download_queue
@@ -215,7 +214,6 @@ class DownloadPipeline:
                     self.reporter.on_log(f"[MATS] Downloaded {len(mats)} material file(s)")
 
         if lecture.id and lecture.id in completed_lectures:
-            # Check if file actually exists before skipping
             file_exists = lecture.file_path.exists()
             logger.debug(
                 f"[DEBUG] State cache check - lecture_id={lecture.id}, "
@@ -223,11 +221,9 @@ class DownloadPipeline:
                 f"path={lecture.file_path}"
             )
             if not file_exists:
-                # File was deleted but still in state - need to re-download
                 logger.info(
                     f"[INFO] File missing but in completed state - will re-download: {lecture.title}"
                 )
-                # Don't skip - fall through to download logic
             else:
                 self.reporter.on_log(f"[CACHE] Skipping completed lecture: {lecture.title[:30]}...")
                 progress.done_vids += 1
@@ -236,9 +232,6 @@ class DownloadPipeline:
                 download_extras()
                 return
 
-        # --- Asset-type routing ---
-
-        # Case 1: No downloadable content at all
         if not lecture.has_url_based_download:
             if lecture.asset_type == "Article" and lecture.body:
                 self.reporter.on_log(f"[DOWNLOAD] Saving article: {lecture.title[:30]}...")
@@ -256,7 +249,6 @@ class DownloadPipeline:
             download_extras()
             return
 
-        # Case 2: Direct HTTP download (PDF, Presentation, Audio, E-Book)
         if lecture.is_direct_download:
             if out_path.exists() and out_path.stat().st_size > DIRECT_DOWNLOAD_MIN_SIZE:
                 size_mb = out_path.stat().st_size / (1024 * 1024)
@@ -290,9 +282,7 @@ class DownloadPipeline:
             download_extras()
             return
 
-        # Case 3: Video download via ffmpeg
         if not lecture.has_video:
-            # Safety net: no video URL but asset_type claims Video
             self.reporter.on_log(f"[INFO] No video stream for: {lecture.title[:30]}...")
             progress.done_vids += 1
             if lecture.id and self.state.current_course_state:
