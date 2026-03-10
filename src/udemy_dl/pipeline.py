@@ -296,7 +296,7 @@ class DownloadPipeline:
             if validity in (ValidationResult.VALID, ValidationResult.UNKNOWN):
                 size_mb = out_path.stat().st_size / (1024 * 1024)
                 self.reporter.on_log(
-                    f"[CACHE] Skipping existing file: " f"{lecture.title[:20]}... ({size_mb:.1f}MB)"
+                    f"[CACHE] Skipping existing file: {lecture.title[:20]}... ({size_mb:.1f}MB)"
                 )
                 progress.done_vids += 1
                 if lecture.id and self.state.current_course_state:
