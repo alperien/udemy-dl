@@ -108,11 +108,9 @@ class DownloadPipeline:
                     f"[RESUME] Found {len(completed_lectures)} previously completed lectures"
                 )
 
-        # Use parallel downloads based on config
         max_workers = self.config.max_concurrent_downloads
 
         if max_workers == 1:
-            # Single-threaded mode (original behavior)
             for lecture in download_queue:
                 if self.reporter.is_interrupted():
                     self.reporter.on_log("[WARN] Download interrupted. Saving progress...")
@@ -120,19 +118,16 @@ class DownloadPipeline:
                     break
                 self._download_lecture(lecture, course, progress, index, total, completed_lectures)
         else:
-            # Parallel download mode
             self.reporter.on_log(
                 f"[INFO] Using parallel downloads ({max_workers} concurrent workers)"
             )
 
-            # Filter out already completed lectures
             pending_lectures = [
                 lec for lec in download_queue
                 if lec.id not in completed_lectures
             ]
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Submit all download tasks
                 future_to_lecture = {
                     executor.submit(
                         self._download_lecture_thread,
@@ -146,10 +141,8 @@ class DownloadPipeline:
                     for lecture in pending_lectures
                 }
 
-                # Process completed futures
                 for future in as_completed(future_to_lecture):
                     if self.reporter.is_interrupted():
-                        # Cancel remaining futures
                         for f in future_to_lecture:
                             f.cancel()
                         self.reporter.on_log("[WARN] Download interrupted. Saving progress...")
@@ -162,7 +155,6 @@ class DownloadPipeline:
                     except Exception as e:
                         logger.error(f"Error downloading {lecture.title}: {e}")
 
-        # Final state save
         self.state.save_state()
 
     def _build_download_queue(self, course: Course, progress: DownloadProgress) -> list[Lecture]:
@@ -415,7 +407,6 @@ class DownloadPipeline:
         total_courses: int,
         completed_lectures: set[int],
     ) -> None:
-        """Thread-safe wrapper for _download_lecture."""
         self._download_lecture(
             lecture,
             course,
@@ -424,6 +415,5 @@ class DownloadPipeline:
             total_courses,
             completed_lectures,
         )
-        # Only lock for progress reporting (not the entire download)
         with self._progress_lock:
             self.reporter.on_progress(progress, course_index, total_courses)

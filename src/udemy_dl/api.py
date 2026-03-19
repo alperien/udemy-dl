@@ -18,7 +18,7 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2
-PAGINATION_DELAY = 0.1  # Reduced from 0.5s for faster API calls
+PAGINATION_DELAY = 0.1
 
 
 class UdemyAPI:

@@ -101,11 +101,9 @@ def _merge_saved_config(config: Config) -> None:
     for env_key, field_name in _ENV_FIELD_MAP.items():
         if not os.getenv(env_key):
             val = saved.get(field_name)
-            # Only override if saved value is non-empty
             if val and isinstance(val, str) and val.strip():
                 setattr(config, field_name, val.strip())
             elif field_name == "max_concurrent_downloads" and val:
-                # Handle integer field
                 config.max_concurrent_downloads = _parse_int(val, 3)
 
     for env_key, field_name in _BOOL_ENV_FIELD_MAP.items():
