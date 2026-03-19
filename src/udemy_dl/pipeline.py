@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Protocol
 
@@ -58,6 +60,7 @@ class DownloadPipeline:
         self.downloader = downloader
         self.state = state
         self.reporter = reporter
+        self._progress_lock = threading.Lock()
 
     def download_courses(self, courses: list[Course]) -> bool:
         for i, course in enumerate(courses, 1):
@@ -105,12 +108,62 @@ class DownloadPipeline:
                     f"[RESUME] Found {len(completed_lectures)} previously completed lectures"
                 )
 
-        for lecture in download_queue:
-            if self.reporter.is_interrupted():
-                self.reporter.on_log("[WARN] Download interrupted. Saving progress...")
-                self.state.save_state()
-                break
-            self._download_lecture(lecture, course, progress, index, total, completed_lectures)
+        # Use parallel downloads based on config
+        max_workers = self.config.max_concurrent_downloads
+
+        if max_workers == 1:
+            # Single-threaded mode (original behavior)
+            for lecture in download_queue:
+                if self.reporter.is_interrupted():
+                    self.reporter.on_log("[WARN] Download interrupted. Saving progress...")
+                    self.state.save_state()
+                    break
+                self._download_lecture(lecture, course, progress, index, total, completed_lectures)
+        else:
+            # Parallel download mode
+            self.reporter.on_log(
+                f"[INFO] Using parallel downloads ({max_workers} concurrent workers)"
+            )
+
+            # Filter out already completed lectures
+            pending_lectures = [
+                lec for lec in download_queue
+                if lec.id not in completed_lectures
+            ]
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all download tasks
+                future_to_lecture = {
+                    executor.submit(
+                        self._download_lecture_thread,
+                        lecture,
+                        course,
+                        progress,
+                        index,
+                        total,
+                        completed_lectures,
+                    ): lecture
+                    for lecture in pending_lectures
+                }
+
+                # Process completed futures
+                for future in as_completed(future_to_lecture):
+                    if self.reporter.is_interrupted():
+                        # Cancel remaining futures
+                        for f in future_to_lecture:
+                            f.cancel()
+                        self.reporter.on_log("[WARN] Download interrupted. Saving progress...")
+                        self.state.save_state()
+                        break
+
+                    lecture = future_to_lecture[future]
+                    try:
+                        future.result()  # Raise any exceptions
+                    except Exception as e:
+                        logger.error(f"Error downloading {lecture.title}: {e}")
+
+        # Final state save
+        self.state.save_state()
 
     def _build_download_queue(self, course: Course, progress: DownloadProgress) -> list[Lecture]:
         curriculum = self.api.get_course_curriculum(course.id)
@@ -137,26 +190,19 @@ class DownloadPipeline:
                 if asset_type == "Video":
                     url = self.downloader.get_quality_video_url(asset) if asset else ""
                     ext = ".mp4"
-                elif asset_type in DIRECT_DOWNLOAD_TYPES:
-                    url = self.downloader.get_asset_download_url(asset) if asset else ""
-                    filename = (asset.get("filename") or "") if asset else ""
-                    file_ext = Path(filename).suffix.lower() if filename else ""
-                    ext = (
-                        file_ext
-                        if file_ext
-                        else {
-                            "File": ".pdf",
-                            "Presentation": ".pdf",
-                            "Audio": ".mp3",
-                            "E-Book": ".pdf",
-                        }.get(asset_type, ".bin")
-                    )
                 elif asset_type == "Article":
                     url = ""
                     ext = ".html"
                 else:
-                    url = str(asset.get("external_url") or "") if asset else ""
-                    ext = ".html"
+                    url = self.downloader.get_asset_download_url(asset) if asset else ""
+                    if not url:
+                        url = str(asset.get("external_url") or "") if asset else ""
+                    filename = (asset.get("filename") or "") if asset else ""
+                    if filename:
+                        file_ext = Path(filename).suffix.lower()
+                    else:
+                        file_ext = Path(url).suffix.lower() if url else ""
+                    ext = file_ext if file_ext else ".bin"
 
                 article_body = ""
                 if asset_type == "Article" and asset:
@@ -359,3 +405,25 @@ class DownloadPipeline:
             self.reporter.on_log(f"[ERROR] Download failed or invalid file: {lecture.title[:30]}")
             if out_path.exists():
                 out_path.unlink()
+
+    def _download_lecture_thread(
+        self,
+        lecture: Lecture,
+        course: Course,
+        progress: DownloadProgress,
+        course_index: int,
+        total_courses: int,
+        completed_lectures: set[int],
+    ) -> None:
+        """Thread-safe wrapper for _download_lecture."""
+        self._download_lecture(
+            lecture,
+            course,
+            progress,
+            course_index,
+            total_courses,
+            completed_lectures,
+        )
+        # Only lock for progress reporting (not the entire download)
+        with self._progress_lock:
+            self.reporter.on_progress(progress, course_index, total_courses)

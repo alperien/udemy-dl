@@ -19,6 +19,9 @@ MIN_TOKEN_LENGTH = 10
 
 MIN_CLIENT_ID_LENGTH = 5
 
+MIN_CONCURRENT_DOWNLOADS = 1
+MAX_CONCURRENT_DOWNLOADS = 10
+
 
 @dataclass
 class Config:
@@ -29,6 +32,7 @@ class Config:
     quality: str = "1080"
     download_subtitles: bool = True
     download_materials: bool = True
+    max_concurrent_downloads: int = 3
 
     def validate(self) -> tuple[bool, str]:
         if not self.token or len(self.token) < MIN_TOKEN_LENGTH:
@@ -39,6 +43,8 @@ class Config:
             return False, "Invalid domain URL (must start with https://)"
         if self.quality not in QUALITY_OPTIONS:
             return False, f"Invalid quality option. Choose from: {QUALITY_OPTIONS}"
+        if not (MIN_CONCURRENT_DOWNLOADS <= self.max_concurrent_downloads <= MAX_CONCURRENT_DOWNLOADS):
+            return False, f"Invalid max_concurrent_downloads. Choose from: {MIN_CONCURRENT_DOWNLOADS}-{MAX_CONCURRENT_DOWNLOADS}"
         dl_path = Path(self.dl_path)
         if not dl_path.is_absolute():
             validated_dl_path = str(Path.home() / dl_path)
@@ -57,6 +63,7 @@ _ENV_FIELD_MAP = {
     "UDEMY_CLIENT_ID": "client_id",
     "UDEMY_DL_PATH": "dl_path",
     "UDEMY_QUALITY": "quality",
+    "UDEMY_MAX_CONCURRENT": "max_concurrent_downloads",
 }
 
 _BOOL_ENV_FIELD_MAP = {
@@ -69,6 +76,15 @@ def _parse_bool(val: object, default: bool = True) -> bool:
     if isinstance(val, bool):
         return val
     return str(val).lower() in ("true", "1", "yes")
+
+
+def _parse_int(val: object, default: int = 0) -> int:
+    if isinstance(val, int):
+        return val
+    try:
+        return int(str(val))
+    except (ValueError, TypeError):
+        return default
 
 
 def _merge_saved_config(config: Config) -> None:
@@ -88,6 +104,9 @@ def _merge_saved_config(config: Config) -> None:
             # Only override if saved value is non-empty
             if val and isinstance(val, str) and val.strip():
                 setattr(config, field_name, val.strip())
+            elif field_name == "max_concurrent_downloads" and val:
+                # Handle integer field
+                config.max_concurrent_downloads = _parse_int(val, 3)
 
     for env_key, field_name in _BOOL_ENV_FIELD_MAP.items():
         if not os.getenv(env_key):
@@ -104,6 +123,7 @@ def load_config() -> Config:
         quality=os.getenv("UDEMY_QUALITY", "1080"),
         download_subtitles=_parse_bool(os.getenv("UDEMY_DOWNLOAD_SUBTITLES", "true")),
         download_materials=_parse_bool(os.getenv("UDEMY_DOWNLOAD_MATERIALS", "true")),
+        max_concurrent_downloads=_parse_int(os.getenv("UDEMY_MAX_CONCURRENT", "3"), 3),
     )
     _merge_saved_config(config)
     return config

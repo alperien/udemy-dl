@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from .config import QUALITY_OPTIONS, Config
 from .utils import get_logger, sanitize_filename
@@ -17,9 +18,13 @@ from .utils import get_logger, sanitize_filename
 logger = get_logger(__name__)
 
 FFMPEG_TIMEOUT = 600
-CHUNK_SIZE = 8192
+CHUNK_SIZE = 262144  # 256KB for better throughput
 DIRECT_DOWNLOAD_MIN_SIZE = 500
 VIDEO_MIN_SIZE = 1024
+
+# Connection pool settings
+HTTP_POOL_CONNECTIONS = 10
+HTTP_POOL_MAXSIZE = 10
 
 
 def _webvtt_to_srt(content: str) -> str:
@@ -76,6 +81,13 @@ def _webvtt_to_srt(content: str) -> str:
 class VideoDownloader:
     def __init__(self, config: Config, session: requests.Session) -> None:
         self.config = config
+        # Add connection pooling for better performance
+        adapter = HTTPAdapter(
+            pool_connections=HTTP_POOL_CONNECTIONS,
+            pool_maxsize=HTTP_POOL_MAXSIZE,
+        )
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
         self.session = session
 
     def _build_headers_content(self) -> str:
